@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "paper-analyst": {
+      "source": "flyer-li/paper-analyst",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "08a52852012ad7a0fa250f9f8f5af68b1db826ff0b42801c7faa8d758ef47520"
+    }
+  }
+}

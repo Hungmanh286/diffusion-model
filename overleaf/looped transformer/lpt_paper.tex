@@ -1,0 +1,165 @@
+% ==============================================================================
+% File: lpt_paper.tex
+% Bài báo: The Surprising Effectiveness of Shared Memory in Looped Transformers
+% Tác giả: Giovanni Monea, Keshav Ramji, Yousef El-Kurdi et al. (Cornell & IBM Research, 2026)
+% ==============================================================================
+
+\section{Shared Memory in Looped Transformers (LPT)}
+
+% ------------------------------------------------------------------------------
+% Slide 0: Tổng quan bài báo
+% ------------------------------------------------------------------------------
+\begin{frame}{LPT: Tổng quan bài báo}
+    \begin{itemize}
+        \item \textbf{Tên bài báo:} \textit{The Surprising Effectiveness of Shared Memory in Looped Transformers}
+        \item \textbf{Tác giả \& Tổ chức:} Giovanni Monea, Keshav Ramji, Yousef El-Kurdi et al. (Cornell University \& IBM Research, arXiv:2610.02383)
+        \item \textbf{Ý tưởng cốt lõi:} Huấn luyện Looped Transformers chia sẻ bộ nhớ ngay từ đầu (pre-trained shared memory) thay vì lưu cache riêng cho từng bước lặp.
+        \item \textbf{Đóng góp nổi bật:}
+        \begin{itemize}
+            \item \textbf{Xóa bỏ định kiến:} Cắt giảm bộ nhớ không làm giảm chất lượng mà ngược lại giúp tăng mạnh độ chính xác và giảm Perplexity.
+            \item \textbf{Tiết kiệm bộ nhớ vượt bậc:} Giảm \textbf{76--79\%} context memory so với Standard Transformer cùng kích thước ($150\text{M} \sim 1\text{B}$).
+            \item \textbf{Đại lộ Gradient (Gradient Highway):} Cơ chế đọc shared memory giúp dòng gradient từ hàm loss bước cuối truyền thẳng về vòng lặp đầu tiên, ổn định đệ quy sâu.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 1: Bối cảnh & Thách thức
+% ------------------------------------------------------------------------------
+\begin{frame}{1. LPT: Bối cảnh \& "Cái bẫy" bộ nhớ KV Cache}
+    \textbf{Nguyên lý Looped Transformers (LT):}
+    \begin{itemize}
+        \item Áp dụng cùng một khối $L$ tầng Transformer lặp lại $R$ lần trên hidden state trước khi dự đoán token:
+        $$h_{\text{in}}^{(t+1)} = \mathcal{N}_{\text{rec}}\left(h^{(t)} + \mathcal{M}^L(h_{\text{in}}^{(t)})\right)$$
+        \item Đạt độ sâu tính toán hiệu dụng $L \cdot R$ nhưng chỉ tốn số lượng tham số của $L$ tầng.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Cái bẫy bộ nhớ ngữ cảnh dài (Context Memory Explosion):}
+    \begin{itemize}
+        \item Trong LT truyền thống, mỗi recursion $t \in [1, R]$ ghi một bảng KV cache riêng biệt.
+        \item Tổng dung lượng cache: $\mathcal{O}(R \cdot L \cdot T \cdot d)$. Tại $T = 4096$, bộ nhớ KV cache phình to vượt xa bộ nhớ lưu trữ trọng số mô hình.
+        \item \textit{Thất bại của giải pháp cũ:} Bỏ bớt cache lúc suy luận (post-hoc inference drop như Ouro, Huginn) khiến chất lượng sinh sụp đổ nghiêm trọng.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 2: Kiến trúc đề xuất LPT & H-LPT
+% ------------------------------------------------------------------------------
+\begin{frame}{2. LPT: Kiến trúc Looped Prediction Transformer}
+    \textbf{Phân tách Bộ nhớ và Dự đoán theo trục đệ quy:}
+    \begin{itemize}
+        \item \textbf{State Recursion ($t = 1$):} Đọc toàn bộ ngữ cảnh, xây dựng và ghi lại bảng full-context KV cache duy nhất $\mathcal{C}^{(1)}$ trên toàn bộ $L$ tầng.
+        \item \textbf{Prediction Recursions ($t \ge 2$):} Không ghi thêm full cache, chỉ duy trì một cửa sổ trượt cục bộ siêu ngắn $\omega = 64$ token ($\mathcal{C}_{[i-\omega, i]}^{(t)}$, chiếm $<2\%$ ngữ cảnh).
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Attention đồng nhất qua một phép Softmax duy nhất:}
+    $$\mathcal{A}_i^{(t)} = \mathcal{C}_{1:i}^{(1)} \cup \mathcal{C}_{[i-\omega, i]}^{(t)}$$
+    \begin{itemize}
+        \item Query $q_i^{(t)}$ chú ý đồng thời vào Shared Memory và cửa sổ cục bộ trong một lượt tính toán (tối ưu hóa qua FlexAttention block mask).
+        \item \textbf{Biến thể Hybrid (H-LPT):} Kết hợp các tầng Linear Attention (Gated DeltaNet) với các tầng Full Attention dùng Shared Memory theo tỷ lệ 4:1.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 3: Kết quả thực nghiệm
+% ------------------------------------------------------------------------------
+\begin{frame}{3. LPT: Kết quả thực nghiệm phá vỡ biên giới Quality--Memory}
+    \textbf{Đánh giá trên FineWeb-Edu (Context $T=4096$, Quy mô 150M -- 1B tham số):}
+    \begin{table}[h]
+        \centering
+        \small
+        \begin{tabular}{lcccc}
+            \toprule
+            \textbf{Mô hình} & \textbf{Recursions ($R$)} & \textbf{Val PPL} ($\downarrow$) & \textbf{Zero-shot Acc} ($\uparrow$) & \textbf{Context Memory} ($\downarrow$) \\
+            \midrule
+            Standard Transformer (STD) & 1 & Baseline & Baseline & $1.0\times$ \\
+            Vanilla LT (Full Cache) & 5 & Dừng cải thiện & Thấp hơn LPT $0.4 \sim 4.8\%$ & $5.0\times$ \\
+            \midrule
+            \textbf{LPT (Ours)} & 5 & \textbf{-1.09 nats} vs LT & \textbf{+4.8\%} vs LT & \textbf{Giảm 4.7$\times$} vs LT \\
+            \textbf{H-LPT (Ours)} & 5 & \textbf{-1.82 nats} vs STD & \textbf{+5.6\%} vs STD & \textbf{Giảm 76--79\%} vs STD \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \begin{itemize}
+        \item \textbf{Quy luật mở rộng theo độ sâu:} LT truyền thống dừng cải thiện sau 3 vòng lặp; LPT tiếp tục tăng trưởng chất lượng mượt mà đến 5 vòng lặp.
+        \item \textbf{Huấn luyện đơn giản:} LPT chỉ cần dùng Final Loss đơn giản ở bước cuối, không cần cơ chế Adaptive loss phức tạp như Ouro mà vẫn cực kỳ ổn định.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 4: Cơ chế 1: Đại lộ Gradient
+% ------------------------------------------------------------------------------
+\begin{frame}{4. LPT: Giải mã cơ chế 1 -- Đại lộ Gradient (Gradient Highway)}
+    \textbf{Nghịch lý suy giảm gradient trong đệ quy sâu:}
+    \begin{itemize}
+        \item Trong LT chuẩn, gradient từ hàm loss ở bước cuối bị suy giảm nghiêm trọng khi truyền ngược qua nhiều bước lặp tuần tự $\rightarrow$ vòng 1 không nhận đủ tín hiệu.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Shared Memory đóng vai trò Gradient Highway:}
+    \begin{itemize}
+        \item Do query ở các recursion sau đọc trực tiếp Shared KV cache của vòng 1, gradient có một đường dẫn tắt truyền thẳng về vòng 1.
+        \item Chuẩn gradient truyền về vòng 1 trong LPT được phục hồi tương đương Standard Transformer, không bị sụt giảm theo số vòng lặp.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Thí nghiệm triệt tiêu (Ablation):}
+    \begin{itemize}
+        \item Khi ngắt dòng gradient này (\textit{detach shared KV}), mô hình ngay lập tức bị suy giảm chất lượng nặng nề hoặc không thể hội tụ khi tăng số vòng lặp.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 5: Cơ chế 2: Phân hóa biểu diễn & Vai trò của cửa sổ cục bộ
+% ------------------------------------------------------------------------------
+\begin{frame}{5. LPT: Giải mã cơ chế 2 -- Phân hóa biểu diễn \& Vai trò của $\omega$}
+    \textbf{Phân hóa không gian biểu diễn (PCA không gian Key):}
+    \begin{itemize}
+        \item Phân tích PCA cho thấy Shared Keys và Local Keys tự động phân tách thành hai cụm không gian hoàn toàn riêng biệt.
+        \item \textit{Shared Keys:} Chuyên biệt hóa lưu trữ ngữ cảnh tĩnh toàn cục.
+        \item \textit{Local Keys:} Chuyên biệt hóa xử lý các tương tác cục bộ ngắn hạn.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Thí nghiệm quét kích thước cửa sổ $\omega$ ($0 \to 4096$):}
+    \begin{itemize}
+        \item LPT vượt trội LT chuẩn ở \textbf{mọi kích thước cửa sổ $\omega$}.
+        \item Ngay cả khi $\omega = 0$ (hoàn toàn không lưu cache quá khứ ở các vòng sau), LPT vẫn tốt hơn LT giữ full cache.
+        \item Tỷ trọng Attention: Càng về các recursion sau, mô hình càng dồn sự chú ý vào Shared Memory (chiếm tới \textbf{73--80\%} attention mass).
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 6: Triển khai thực tế trên NVIDIA H100
+% ------------------------------------------------------------------------------
+\begin{frame}{6. LPT: Đo đạc thực tế trên phần cứng NVIDIA H100}
+    \textbf{Khắc phục nút thắt Memory-Bound khi phục vụ mô hình:}
+    \begin{itemize}
+        \item \textbf{Khả năng chứa Batch (Batch Capacity):} Nhờ cắt giảm 79\% context memory, H-LPT cho phép tăng batch size lên gấp \textbf{3.6$\times$ -- 5.0$\times$} so với Standard Transformer trước khi đầy 80GB VRAM.
+        \item \textbf{Thông lượng thực tế (Throughput):} 
+        \begin{itemize}
+            \item Ở $R = 3$: H-LPT đạt thông lượng cao gấp \textbf{1.4 -- 1.5$\times$} so với Standard Transformer.
+            \item Ở $R = 5$: H-LPT duy trì thông lượng \textbf{81--88\%} so với Standard Transformer, dù thực hiện số phép tính gấp nhiều lần.
+        \end{itemize}
+    \end{itemize}
+    \vspace{0.2cm}
+    \begin{block}{Ý nghĩa thực tiễn}
+        Việc tăng batch size trên GPU bù đắp hoàn toàn chi phí tính toán lặp lại, biến Looped Transformers thành giải pháp khả thi trong môi trường sản xuất thực tế.
+    \end{block}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 7: Kết luận & Định hướng tương lai
+% ------------------------------------------------------------------------------
+\begin{frame}{7. LPT: Kết luận \& Định hướng tương lai}
+    \begin{itemize}
+        \item \textbf{Inductive Bias mới:} Chia sẻ bộ nhớ không phải là sự đánh đổi chấp nhận mất mát, mà là một cấu trúc kiến trúc vượt trội giúp phân định rõ ràng giữa lưu trữ ngữ cảnh và tinh chỉnh suy luận.
+        \item \textbf{Đột phá đệ quy sâu:} Gradient Highway qua shared cache mở đường cho việc mở rộng Looped Transformers lên số vòng lặp lớn mà không gặp hiện tượng vanishing gradient.
+        \item \textbf{Hiệu quả triển khai:} Giảm 76--79\% bộ nhớ ngữ cảnh, tăng 5$\times$ batch capacity trên GPU hiện đại.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Hướng phát triển tiếp theo:}
+    \begin{itemize}
+        \item Tích hợp cơ chế dừng sớm linh hoạt (adaptive compute / early exit) theo từng độ khó của token.
+        \item Mở rộng sang các bài toán suy luận đa bước phức tạp (complex multi-step reasoning).
+    \end{itemize}
+\end{frame}
+

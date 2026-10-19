@@ -1,0 +1,113 @@
+% ==============================================================================
+% File: elf_paper.tex
+% Bài báo: Embedded Language Flows (ELF)
+% Mô hình khuếch tán ngôn ngữ liên tục dựa trên Flow Matching
+% ==============================================================================
+
+\section{Embedded Language Flows (ELF)}
+
+% Slide 0: Giới thiệu tổng quan bài báo
+\begin{frame}{ELF: Tổng quan bài báo}
+    \begin{itemize}
+        \item \textbf{Tên bài báo:} \textit{Embedded Language Flows (ELF)}
+        \item \textbf{Ý tưởng cốt lõi:} Mô hình khuếch tán ngôn ngữ liên tục dựa trên Flow Matching trong không gian nhúng biểu diễn (latent space).
+        \item \textbf{Đóng góp chính:}
+        \begin{itemize}
+            \item Chứng minh continuous diffusion hoàn toàn vượt trội discrete diffusion trên ngôn ngữ nếu khử nhiễu hoàn toàn trong không gian nhúng liên tục.
+            \item Chỉ thực hiện rời rạc hóa (discretization/decoding) tại bước cuối cùng ($t = 1$).
+            \item Sử dụng mạng chia sẻ trọng số giữa denoising và decoding, tích hợp sẵn Classifier-Free Guidance (CFG) lúc huấn luyện.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% Slide 1: Bối cảnh & Phân loại
+\begin{frame}{1. ELF: Bối cảnh \& Phân loại DLMs}
+    \textbf{Bối cảnh:}
+    \begin{itemize}
+        \item Diffusion và flow-based models là tiêu chuẩn vàng trong sinh ảnh/video, đang được mở rộng sang xử lý ngôn ngữ.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Phân loại mô hình khuếch tán ngôn ngữ (DLMs):}
+    \begin{itemize}
+        \item \textit{Rời rạc (Discrete):} Thao tác trực tiếp trên token (trước đây được ưu tiên do dễ tối ưu hóa).
+        \item \textit{Liên tục (Continuous):} Ánh xạ token sang không gian biểu diễn liên tục để tiến hành khử nhiễu.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Giải pháp đề xuất của ELF:}
+    \begin{itemize}
+        \item Khử nhiễu hoàn toàn trong không gian nhúng liên tục.
+        \item Định nghĩa trường vận tốc qua thời gian liên tục với Flow Matching.
+        \item Dùng mạng chia sẻ trọng số, chỉ rời rạc hóa tại bước $t = 1$.
+    \end{itemize}
+\end{frame}
+
+% Slide 2: Khung làm việc ELF
+\begin{frame}{2. ELF: Khung làm việc (Framework)}
+    \begin{itemize}
+        \item \textbf{Từ rời rạc sang liên tục:} Chuỗi token $s \in \mathcal{V}^L$ được chuyển sang biểu diễn liên tục $x$ bằng bộ mã hóa T5 đông cứng.
+        \item \textbf{Nội suy tuyến tính (Rectified Flows):} Tạo biến ẩn $z_t$ dọc theo đường đi:
+        $$z_t = t x + (1 - t)\epsilon, \quad t \in [0, 1], \quad \epsilon \sim \mathcal{N}(0, \mathbf{I})$$
+        \item \textbf{Trường vận tốc dòng (Flow Velocity):} Đạo hàm theo thời gian:
+        $$v = \frac{dz}{dt} = x - \epsilon$$
+        \item \textbf{Dự đoán $x$ (x-prediction):} Trực tiếp dự đoán biểu diễn sạch $x_\theta(z_t, t)$ thay vì dự đoán vận tốc $v$, giúp mạng nơ-ron hoạt động ổn định ở số chiều cực cao.
+    \end{itemize}
+\end{frame}
+
+% Slide 3: Hàm mục tiêu & Rời rạc hóa
+\begin{frame}{3. ELF: Hàm mục tiêu \& Rời rạc hóa}
+    \begin{itemize}
+        \item \textbf{Nhánh khử nhiễu (Denoising - chiếm 80\% trọng số):} Tối thiểu hóa sai số MSE của trường vận tốc dự đoán:
+        $$\mathcal{L}_{\text{MSE}} = \mathbb{E}_{t, x, \epsilon} \left[ \frac{1}{(1-t)^2} \|x_\theta(z_t, t) - x\|^2 \right]$$
+        \item \textbf{Nhánh giải mã (Decoding - chiếm 20\% trọng số):}
+        \begin{itemize}
+            \item Tại bước cuối $t = 1$, biến đổi $z_t$ thành phân phối token qua ma trận unembedding $W$.
+            \item Dùng chung trọng số với mạng khử nhiễu, huấn luyện bằng Cross-Entropy:
+            $$\mathcal{L}_{\text{CE}} = \mathbb{E}_{\tilde{z}} \left[ \text{CrossEntropy}(W x_\theta(\tilde{z}), s) \right]$$
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% Slide 4: Điều kiện hóa & Dẫn hướng
+\begin{frame}{4. ELF: Điều kiện hóa \& Dẫn hướng (Guidance)}
+    \begin{itemize}
+        \item \textbf{Self-conditioning:} Thực hiện lượt truyền thứ hai điều kiện hóa trên dự đoán trung gian $\hat{x}'$ từ bước trước để tăng độ mượt của quỹ đạo.
+        \item \textbf{Classifier-Free Guidance (CFG):} Dễ dàng áp dụng trong miền liên tục:
+        $$v_{\text{cfg}}(z_t \mid c) = \omega v(z_t \mid c) + (1 - \omega) v(z_t \mid \emptyset)$$
+        \item \textbf{Training-time CFG:} Tích hợp thẳng CFG vào hàm mục tiêu vận tốc ngay từ lúc huấn luyện $\rightarrow$ loại bỏ hoàn toàn chi phí tính toán kép khi suy luận.
+        \item \textbf{Sinh có điều kiện:} Ghép prompt vào trước chuỗi mục tiêu; phần prompt được giữ nguyên không làm nhiễu.
+    \end{itemize}
+\end{frame}
+
+% Slide 5: Kết quả thực nghiệm
+\begin{frame}{5. ELF: Kết quả thực nghiệm}
+    \textbf{Sinh không điều kiện (OpenWebText):}
+    \begin{itemize}
+        \item Ở 32 bước lấy mẫu, ELF-B (105M) đạt \textbf{Gen. PPL 24.08}, vượt trội so với các đối thủ rời rạc như MDLM (104.29) và Duo (62.47).
+        \item \textbf{Hiệu quả dữ liệu cực cao:} Đạt đỉnh chỉ với 45B token huấn luyện (ít hơn $\sim$10 lần so với $>500$B tokens của các baseline).
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Chưng cất lũy tiến (Progressive Distillation):}
+    \begin{itemize}
+        \item Cho phép giảm số bước lấy mẫu xuống mức cực ít (\textbf{1 đến 4 bước}) mà vẫn duy trì chất lượng sinh văn bản xuất sắc.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Sinh có điều kiện:}
+    \begin{itemize}
+        \item \textbf{Tóm tắt XSum:} ROUGE-1 đạt \textbf{36.0} (đánh bại các mô hình tự hồi quy cùng kích cỡ).
+        \item \textbf{Dịch máy WMT14:} Đạt BLEU \textbf{26.4}.
+    \end{itemize}
+\end{frame}
+
+% Slide 6: Kết luận
+\begin{frame}{6. ELF: Kết luận \& Đóng góp}
+    \begin{itemize}
+        \item \textbf{Khẳng định:} Mô hình khuếch tán ngôn ngữ liên tục hoàn toàn có thể cạnh tranh và vượt trội hơn các phương pháp rời rạc.
+        \item \textbf{Bí quyết tối ưu của ELF:}
+        \begin{enumerate}
+            \item Giữ toàn bộ quỹ đạo làm nhiễu trong không gian nhúng liên tục.
+            \item Chỉ thực hiện rời rạc hóa ở bước thời gian cuối cùng ($t = 1$).
+            \item Sử dụng mạng chia sẻ trọng số, loại bỏ bộ giải mã phụ trợ rườm rà.
+        \end{enumerate}
+        \item \textbf{Tác động:} Mở ra tiềm năng tạo văn bản chất lượng cao với chi phí huấn luyện thấp và tốc độ suy luận cực nhanh.
+    \end{itemize}
+\end{frame}
