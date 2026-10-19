@@ -1,0 +1,195 @@
+% ==============================================================================
+% File: fmlm_paper.tex
+% Bài báo: Flow Map Language Models: One-step Language Modeling via Continuous Denoising
+% Tác giả: Chanhyuk Lee, Nicholas M. Boffi, Jinwoo Kim et al. (KAIST & CMU, 2026)
+% ==============================================================================
+
+\section{Flow Map Language Models (FMLM)}
+
+% ------------------------------------------------------------------------------
+% Slide 0: Tổng quan bài báo
+% ------------------------------------------------------------------------------
+\begin{frame}{FMLM: Tổng quan bài báo}
+    \begin{itemize}
+        \item \textbf{Tên bài báo:} \textit{Flow Map Language Models: One-step Language Modeling via Continuous Denoising}
+        \item \textbf{Tác giả \& Tổ chức:} Chanhyuk Lee, Nicholas M. Boffi, Jinwoo Kim et al. (KAIST \& CMU, arXiv:2602.16813)
+        \item \textbf{Ý tưởng cốt lõi:} Mô hình hóa ngôn ngữ bằng continuous flows trên biểu diễn one-hot unconstrained, chưng cất thành công mô hình sinh ngôn ngữ \textbf{1 bước (one-step)} thông qua toán tử \textbf{Two-time Denoiser} trên simplex.
+        \item \textbf{Đóng góp nổi bật:}
+        \begin{itemize}
+            \item \textbf{Phá vỡ định kiến:} Bác bỏ giả thuyết dữ liệu rời rạc bắt buộc phải dùng discrete noising; continuous flow vượt trội cả về chất lượng lẫn tốc độ.
+            \item \textbf{Đột phá sinh 1 bước:} FMLM sinh 1 bước đạt chất lượng vượt qua discrete diffusion 8 bước, tăng tốc \textbf{8.3$\times$}.
+            \item \textbf{Two-time Denoiser ($\delta_{s,t}$):} Đưa flow map về nằm trọn trên simplex xác suất, mở đường cho chưng cất bằng semigroup condition và cross-entropy.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 1: Động lực & Tử huyệt của Discrete Diffusion
+% ------------------------------------------------------------------------------
+\begin{frame}{1. FMLM: Tử huyệt Factorization Error của Discrete Diffusion}
+    \textbf{Nút thắt của Autoregressive LLMs:}
+    \begin{itemize}
+        \item Sinh tuần tự từng token một ($O(L)$ bước), tạo ra điểm nghẽn độ trễ khi sinh chuỗi dài.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Tử huyệt Factorization Error của Discrete Diffusion:}
+    \begin{itemize}
+        \item Không gian trạng thái $\mathcal{V}^L$ quá lớn $\rightarrow$ buộc phải dùng xấp xỉ phân rã tích:
+        $$\tilde{p}_{t|s}(\mathbf{y}_t | \mathbf{y}_s) := \prod_{l=1}^L p^l_{t|s}(y_t^l | \mathbf{y}_s)$$
+        \item Giả định các token độc lập có điều kiện chỉ đúng trong giới hạn vô cùng bé ($t \to s$).
+        \item \textit{Hậu quả ở ít bước ($1 \sim 4$ bước):} Bước nhảy lớn làm mất liên kết ngữ nghĩa giữa các token $\rightarrow$ văn bản vô nghĩa (PPL $> 1000$) hoặc lặp từ liên tục (entropy sụp đổ $< 4.0$).
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Mệnh đề 3.5 (Giới hạn toán học căn bản):}
+    \begin{itemize}
+        \item Trong không gian rời rạc hữu hạn, \textbf{không thể tồn tại sample-level deterministic flow map} để chuyển đổi một phân phối bất kỳ về phân phối đích.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 2: Mô hình cơ sở FLM
+% ------------------------------------------------------------------------------
+\begin{frame}{2. FMLM: Mô hình cơ sở Flow LM (FLM)}
+    \begin{itemize}
+        \item \textbf{Biểu diễn One-hot Unconstrained:} $f(\mathbf{y}) \in \mathbb{R}^{L \times |\mathcal{V}|}$, giải mã bằng $g(\mathbf{x}) = \text{argmax}(\mathbf{x})$.
+        \item \textbf{Stochastic Interpolant:} Nội suy đường đi giữa Gaussian noise $\mathbf{x}_0 \sim \mathcal{N}(0, \mathbf{I})$ và one-hot data $\mathbf{x}_1$:
+        $$I_t := (1 - t)\mathbf{x}_0 + t\mathbf{x}_1, \quad t \in [0, 1]$$
+        \item \textbf{Tránh nút thắt rank bottleneck:} Học vận tốc $\mathbf{b}_t = \mathbb{E}[\mathbf{x}_1 - \mathbf{x}_0 | I_t]$ bằng MSE bị underfitting nghiêm trọng do $\mathbf{x}_0$ full-rank.
+        \item \textbf{Chuyển sang Denoiser trên Simplex (Bổ đề 3.1 \& Mệnh đề 3.2):}
+        $$D_t(\mathbf{x}) := \mathbb{E}[\mathbf{x}_1 | I_t = \mathbf{x}] \in \Delta^{|\mathcal{V}|-1}, \quad \mathbf{b}_t(\mathbf{x}) = \frac{D_t(\mathbf{x}) - \mathbf{x}}{1 - t}$$
+        \begin{itemize}
+            \item $D_t$ là phân phối hậu nghiệm của token, luôn nằm trên đơn hình xác suất simplex.
+            \item Huấn luyện bằng \textbf{Cross-Entropy loss}, chặn chặt khoảng cách Wasserstein $W_2^2 \le C\epsilon$.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 3: Tái tham số hóa thời gian
+% ------------------------------------------------------------------------------
+\begin{frame}{3. FMLM: Tái tham số hóa thời gian theo Decoding Error ($\tau(t)$)}
+    \begin{itemize}
+        \item \textbf{Vấn đề:} Tỷ lệ lỗi giải mã $P_e(t) := \frac{1}{L}\sum_l \mathbb{P}(g^l(\mathbf{x}_t) \ne g^l(\mathbf{x}_1))$ dốc đứng sát $t = 1$.
+        \begin{itemize}
+            \item Lấy mẫu đều $t \sim \mathcal{U}[0, 1]$ lãng phí tín hiệu ở vùng chưa quyết định token và bỏ sót vùng quyết định then chốt khi $|\mathcal{V}|$ lớn.
+        \end{itemize}
+        \item \textbf{Đề xuất hàm $\tau(t)$ chuẩn hóa tiến độ giải mã:}
+        $$\tau(t) = 1 - \frac{|\mathcal{V}|}{|\mathcal{V}| - 1} P_e(t)$$
+        \item \textbf{Lợi ích thực tế:}
+        \begin{itemize}
+            \item Huấn luyện và lấy mẫu đều trong miền $\tau(t) \sim \mathcal{U}[0, 1]$.
+            \item Mỗi bước tính toán đóng góp đồng đều vào việc giảm decoding error.
+            \item Cài đặt $O(1)$ qua bảng tra cứu trước (LUT) kết hợp nội suy cubic spline, mở rộng thành công lên từ vựng $|\mathcal{V}| \approx 50.000$.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 4: Ánh xạ dòng & Two-time Denoiser
+% ------------------------------------------------------------------------------
+\begin{frame}{4. FMLM: Two-time Denoiser trên Simplex}
+    \textbf{Mục tiêu Flow Map:}
+    \begin{itemize}
+        \item Ánh xạ trực tiếp giữa hai thời điểm bất kỳ: $X_{s,t}(\mathbf{x}) = \mathbf{x} + (t - s)\mathbf{v}_{s,t}(\mathbf{x})$.
+        \item Cho phép sinh 1 bước qua $\hat{\mathbf{x}}_1 = X_{0,1}(\mathbf{x}_0)$.
+        \item \textit{Thách thức:} $X_{s,t}$ văng ra khỏi simplex do nhiễu Gaussian $\rightarrow$ dùng MSE cho chất lượng kém.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Định nghĩa Two-time Denoiser ($\delta_{s,t}$):}
+    $$\delta_{s,t}(\mathbf{x}) := \mathbf{x} + (1 - s)\mathbf{v}_{s,t}(\mathbf{x})$$
+    \textbf{4 Tính chất cốt lõi (Mệnh đề 3.3):}
+    \begin{enumerate}
+        \item \textbf{Phục hồi Flow Map:} $X_{s,t}(\mathbf{x}) = \frac{1 - t}{1 - s}\mathbf{x} + \frac{t - s}{1 - s}\delta_{s,t}(\mathbf{x})$.
+        \item \textbf{Bảo toàn trên simplex:} $\delta_{s,t}(\mathbf{x})^l \in \Delta^{|\mathcal{V}|-1}$ $\rightarrow$ dùng được tầng softmax.
+        \item \textbf{Khớp với Denoiser ở đường chéo:} $\delta_{s,s}(\mathbf{x}) = D_s(\mathbf{x})$.
+        \item \textbf{Thỏa mãn tính chất nửa nhóm dạng tổ hợp lồi:}
+        $$\delta_{s,t} = \gamma \delta_{s,u} + (1 - \gamma)\delta_{u,t}(X_{s,u}), \quad \gamma = \frac{(1-t)(u-s)}{(1-u)(t-s)} \in [0, 1]$$
+    \end{enumerate}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 5: Chưng cất Semigroup & Huấn luyện
+% ------------------------------------------------------------------------------
+\begin{frame}{5. FMLM: Chưng cất Semigroup \& Suy luận 1 bước}
+    \textbf{Hàm mất mát Semigroup Distillation (Mệnh đề 3.4):}
+    \begin{itemize}
+        \item Tận dụng tính chất tổ hợp lồi trên simplex, tối ưu qua KL divergence với giáo viên FLM $\hat{D}_t$ đóng băng:
+        $$\mathcal{L}_{\text{KL}}(\hat{\delta}) = \mathbb{E}_{s,u,t} \left[ \sum_{l=1}^L \text{KL}(\bar{\delta}^l_{s,t} \parallel \hat{\delta}^l_{s,t}(I_s)) \right] + \mathbb{E}_{t} \left[ \sum_{l=1}^L \text{KL}(\hat{D}_t(I_t)^l \parallel \hat{\delta}^l_{t,t}(I_t)) \right]$$
+        với mục tiêu giáo viên nửa nhóm: $\bar{\delta}_{s,t} := sg\left(\gamma \hat{\delta}_{s,u}(I_s) + (1 - \gamma)\hat{\delta}_{u,t}(\hat{X}_{s,u})\right)$.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Kỹ thuật lấy mẫu biên (Boundary Sampling):}
+    \begin{itemize}
+        \item Do $\tau(t)$ phẳng gần $t = 0$, cố định xác suất $p = 1/32$ lấy mẫu cặp $(s, t) = (0, 1)$ để bơm gradient mạnh cho bước nhảy 1-step.
+        \item \textbf{One-step inference:} $\hat{\mathbf{x}}_1 = \hat{\delta}_{0,1}(\mathbf{x}_0)$ sau đó decode qua argmax.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 6: Kết quả thực nghiệm
+% ------------------------------------------------------------------------------
+\begin{frame}{6. FMLM: Kết quả thực nghiệm sinh 1 bước}
+    \textbf{Hiệu năng ở chế độ ít bước ($N = 1, 2, 4$ steps):}
+    \begin{table}[h]
+        \centering
+        \footnotesize
+        \begin{tabular}{lccccc}
+            \toprule
+            \textbf{Bộ dữ liệu / Bước} & \textbf{MDLM+SDTT} & \textbf{MDLM+Di4C} & \textbf{Duo+DCD} & \textbf{Duo+Di4C} & \textbf{FMLM (Ours)} \\
+            \midrule
+            \textbf{LM1B - 1 bước} & 1429.48 & 1217.10 & 1224.52 & 292.94\textcolor{red}{$^*$} & \textbf{119.34} (Ent: 4.16) \\
+            LM1B - 2 bước & 602.14 & 621.59 & 520.08 & 247.69\textcolor{red}{$^*$} & \textbf{110.19} (Ent: 4.21) \\
+            LM1B - 4 bước & 241.01 & 247.32 & 210.88 & 150.67 & \textbf{98.76} (Ent: 4.21) \\
+            \midrule
+            \textbf{OWT - 1 bước} & 1260.86 & 1298.80 & 5743.29 & 370.51\textcolor{red}{$^*$} & \textbf{168.30} (Ent: 5.17) \\
+            OWT - 4 bước & 339.73 & 239.27 & 250.86 & 154.67 & \textbf{111.31} (Ent: 5.26) \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{-0.2cm}
+    {\tiny \textcolor{red}{$^*$} Mô hình bị sụp đổ Entropy ($<4.0$) do lặp từ vô nghĩa liên tục.}
+
+    \begin{itemize}
+        \item \textbf{Tốc độ \& Chất lượng:} FMLM 1 bước đạt chất lượng tương đương mô hình rời rạc chưng cất $8 \sim 16$ bước, tăng tốc \textbf{8.3$\times$}.
+        \item \textbf{Kiểm chứng Mode Collapse:} Self-BLEU (0.073) sát với Real data (0.047); GPT-4.1 Judge xác nhận độ đa dạng cao (39--42\%), không bị lặp mẫu.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 7: Điều hướng trong suy luận (Guidance)
+% ------------------------------------------------------------------------------
+\begin{frame}{7. FMLM: Dẫn hướng trong suy luận (Guidance)}
+    \textbf{Autoguidance (Nâng cao chất lượng sinh không điều kiện):}
+    \begin{itemize}
+        \item $\hat{\mathbf{b}}_t^{\text{(guided)}} = \hat{\mathbf{b}}_t^{\text{(weak)}} + \eta (\hat{\mathbf{b}}_t - \hat{\mathbf{b}}_t^{\text{(weak)}})$.
+        \item Hoạt động trong không gian Euclid: FLM ổn định với scale $\eta$ lên đến \textbf{100}.
+        \item Tại $\eta = 50$, PPL giảm mạnh từ 96.91 xuống \textbf{51.62}.
+        \item Mô hình rời rạc sụp đổ hoàn toàn tại $\eta \ge 10$ do ngoại suy logit nhân bản lỗi phân rã nhân tử.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Reward Guidance (FMRG - Điều hướng theo thuộc tính):}
+    \begin{itemize}
+        \item Nhờ Flow Map $X_{t_n, 1}$, mô hình có khả năng \textbf{nhìn trước điểm kết thúc (look-ahead) vi phân được}:
+        $$\mathbf{x}_{t_{n+1}} = X_{t_n, t_{n+1}}(\mathbf{x}_{t_n}) + \lambda \nabla_{\mathbf{x}_{t_n}} r\left( X_{t_n, 1}(\mathbf{x}_{t_n}) \right)$$
+        \item Reward model $r$ (an toàn, cảm xúc, chủ đề) \textbf{chỉ cần huấn luyện trên văn bản sạch}.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 8: Cấu trúc logic & Kết luận
+% ------------------------------------------------------------------------------
+\begin{frame}{8. FMLM: Cấu trúc logic (Sudoku) \& Kết luận}
+    \textbf{Mô hình hóa ràng buộc logic toàn cục (Sudoku $9 \times 9$):}
+    \begin{itemize}
+        \item \textit{Unconditional 1-step:} FMLM đạt \textbf{9.38\%} lời giải hợp lệ (tất cả các baseline rời rạc đều $= 0.00\%$).
+        \item \textit{Conditional 1-step (20 ô gợi ý):} FMLM giải đúng \textbf{39.84\%} chỉ trong 1 forward pass.
+    \end{itemize}
+    \vspace{0.2cm}
+    \textbf{Tổng kết 3 bài học cốt lõi:}
+    \begin{enumerate}
+        \item \textbf{Phá vỡ định kiến:} Continuous Flow trên biểu diễn One-hot unconstrained vượt trội hơn hẳn Discrete Diffusion trên dữ liệu rời rạc.
+        \item \textbf{Two-time Denoiser ($\delta_{s,t}$):} Đưa Flow Map về nằm trên đơn hình xác suất, biến bài toán chưng cất thành hàm mất mát Cross-Entropy / Semigroup đơn giản và tối ưu.
+        \item \textbf{One-step Generation:} FMLM là mô hình đầu tiên sinh ngôn ngữ 1 bước thành công, mở ra hướng tăng tốc vượt bậc cho mô hình ngôn ngữ và RL finetuning.
+    \end{enumerate}
+\end{frame}
+
