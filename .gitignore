@@ -1,0 +1,25 @@
+# LaTeX Auxiliary and Temporary Files
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.vrb
+texput.log
+
+# Python / Extraction cache
+__pycache__/
+*.py[cod]
+
+# OS and Editor Files
+.DS_Store
+Thumbs.db
+*~
+*.swp
+

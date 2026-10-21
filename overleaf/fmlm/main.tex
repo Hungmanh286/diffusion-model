@@ -1,5 +1,11 @@
 \documentclass[aspectratio=169]{beamer}
-\usepackage[utf8]{vietnam}
+\usepackage{iftex}
+\ifXeTeX
+  \usepackage{fontspec}
+  \setsansfont{DejaVu Sans}
+\else
+  \usepackage[utf8]{vietnam}
+\fi
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{graphicx}
