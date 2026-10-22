@@ -1,0 +1,48 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage{iftex}
+\ifXeTeX
+  \usepackage{fontspec}
+  \setsansfont{DejaVu Sans}
+\else
+  \usepackage[utf8]{vietnam}
+\fi
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+% Cài đặt theme
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% Thông tin trang bìa
+\title[Embedded Language Flows]{Embedded Language Flows (ELF)}
+\subtitle{Mô hình Khuếch tán Ngôn ngữ Liên tục dựa trên Flow Matching}
+\author{Hung Manh}
+\date{\today}
+
+\begin{document}
+
+% Trang bìa
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% Mục lục
+\begin{frame}{Nội dung trình bày}
+    \tableofcontents
+\end{frame}
+
+% Nội dung các slide ELF
+\input{elf_paper.tex}
+
+% Trang kết thúc
+\begin{frame}
+    \centering
+    \Huge \textbf{Cảm ơn bạn đã theo dõi!}\\
+    \vspace{0.5cm}
+    \Large Q\&A
+\end{frame}
+
+\end{document}
+
