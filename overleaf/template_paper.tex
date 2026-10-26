@@ -1,117 +1,121 @@
 % ==============================================================================
 % File: template_paper.tex
 % TEMPLATE MẪU SLIDE CHO BÀI BÁO MỚI (DÙNG ĐỂ IMPORT VÀO MAIN.TEX)
-% Cách dùng: 
+% Cách dùng:
 %   1. Sao chép file này: cp template_paper.tex <ten_bai_bao>_paper.tex
 %   2. Điền nội dung vào các khung bên dưới
 %   3. Thêm vào main.tex: \input{<ten_bai_bao>_paper.tex}
+% Quy tắc thuật ngữ: xem .agents/skills/beamer-paper-slides/SKILL.md, mục 2.
+%   - Không mở ngoặc để kèm tiếng Anh.
+%   - Dịch thuật ngữ chuyên ngành sang tiếng Việt theo bảng thuật ngữ chuẩn.
+%   - Số liệu phải khớp báo cáo trong reports/.
 % ==============================================================================
 
-% Tên Section sẽ hiển thị trên mục lục và thanh tiêu đề của Beamer
-\section{Tên Bài Báo Viết Tắt (PAPER-NAME)}
+% Tên section hiển thị trên mục lục và thanh tiêu đề của Beamer
+\section{Tên Bài Báo Viết Tắt}
 
 % ------------------------------------------------------------------------------
 % Slide 0: Tổng quan bài báo
 % ------------------------------------------------------------------------------
-\begin{frame}{PAPER-NAME: Tổng quan bài báo}
+\begin{frame}{TÊN-VIẾT-TẮT: Tổng quan bài báo}
     \begin{itemize}
-        \item \textbf{Tên bài báo:} \textit{Full Title of the Research Paper}
-        \item \textbf{Tác giả \& Tổ chức:} Tên tác giả chính et al. (Lab / Trường / Công ty, Năm xuất bản)
-        \item \textbf{Ý tưởng cốt lõi:} Mô tả ngắn gọn trong 1-2 câu về giải pháp chính bài báo đề xuất.
+        \item \textbf{Tên bài báo:} \textit{Tên đầy đủ nguyên văn của bài báo}
+        \item \textbf{Tác giả và tổ chức:} Tên tác giả chính et al., lab hoặc trường, mã arXiv
+        \item \textbf{Ý tưởng cốt lõi:} Mô tả ngắn gọn trong 1 đến 2 câu về giải pháp chính.
         \item \textbf{Đóng góp nổi bật:}
         \begin{itemize}
-            \item Đóng góp 1: Giải quyết nút thắt hoặc hạn chế của các phương pháp đi trước.
+            \item Đóng góp 1: Giải quyết nút thắt của các phương pháp đi trước.
             \item Đóng góp 2: Đề xuất kiến trúc, hàm mục tiêu hoặc kỹ thuật mới.
-            \item Đóng góp 3: Đạt kết quả thực nghiệm SOTA hoặc cải thiện vượt trội về tốc độ/tài nguyên.
+            \item Đóng góp 3: Kết quả thực nghiệm tốt nhất hiện nay hoặc cải thiện rõ rệt về tốc độ và tài nguyên.
         \end{itemize}
     \end{itemize}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% Slide 1: Bối cảnh & Thách thức
+% Slide 1: Bối cảnh và thách thức
 % ------------------------------------------------------------------------------
-\begin{frame}{1. PAPER-NAME: Bối cảnh \& Thách thức}
+\begin{frame}{1. TÊN-VIẾT-TẮT: Bối cảnh và thách thức}
     \textbf{Bối cảnh nghiên cứu:}
     \begin{itemize}
-        \item Nêu bài toán thực tế cần giải quyết và hướng tiếp cận truyền thống (ví dụ: autoregressive, standard diffusion).
-        \item Tại sao hướng tiếp cận này quan trọng trong thời điểm hiện tại.
+        \item Bài toán cần giải quyết và hướng tiếp cận truyền thống, ví dụ mô hình tự hồi quy hoặc khuếch tán rời rạc.
+        \item Lý do bài toán quan trọng ở thời điểm hiện tại.
     \end{itemize}
     \vspace{0.2cm}
-    \textbf{Hạn chế của các phương pháp hiện tại (Pain Points):}
+    \textbf{Hạn chế của các phương pháp hiện tại:}
     \begin{itemize}
-        \item Điểm yếu 1: Chi phí tính toán cao, tốc độ suy luận chậm hoặc yêu cầu nhiều tài nguyên.
-        \item Điểm yếu 2: Lỗi xấp xỉ lý thuyết hoặc suy giảm chất lượng trong các tình huống thực tế.
-        \item Hậu quả cụ thể: Mô hình bị sụp đổ, sinh kết quả kém hoặc khó mở rộng quy mô.
+        \item Điểm yếu 1: Chi phí tính toán cao, suy luận chậm hoặc tốn tài nguyên.
+        \item Điểm yếu 2: Lỗi xấp xỉ lý thuyết hoặc suy giảm chất lượng trong thực tế.
+        \item Hậu quả cụ thể: Mô hình sụp đổ, sinh kết quả kém hoặc khó mở rộng quy mô.
     \end{itemize}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% Slide 2: Ý tưởng cốt lõi & Khung làm việc (Framework)
+% Slide 2: Ý tưởng cốt lõi và khung làm việc
 % ------------------------------------------------------------------------------
-\begin{frame}{2. PAPER-NAME: Khung làm việc (Framework)}
+\begin{frame}{2. TÊN-VIẾT-TẮT: Khung làm việc}
     \begin{itemize}
-        \item \textbf{Đột phá tư duy (Key Insight):} Điểm khác biệt căn bản trong cách tiếp cận bài toán.
-        \item \textbf{Quy trình tổng thể (Overall Pipeline):}
+        \item \textbf{Nhận định then chốt:} Điểm khác biệt căn bản trong cách tiếp cận bài toán.
+        \item \textbf{Quy trình tổng thể:}
         \begin{itemize}
-            \item \textit{Đầu vào / Biểu diễn:} Không gian dữ liệu đầu vào (ví dụ: latent embedding, unconstrained space).
-            \item \textit{Tiến trình biến đổi:} Cách thức xử lý trung gian (ví dụ: continuous flow, recurrent state).
-            \item \textit{Đầu ra / Giải mã:} Cách chuyển đổi về kết quả cuối cùng.
+            \item \textit{Đầu vào và biểu diễn:} Không gian dữ liệu đầu vào.
+            \item \textit{Tiến trình biến đổi:} Cách xử lý trung gian, ví dụ dòng liên tục hoặc trạng thái lặp.
+            \item \textit{Đầu ra và giải mã:} Cách chuyển về kết quả cuối cùng.
         \end{itemize}
-        \item \textbf{Ưu thế so với thiết kế cũ:} Loại bỏ các bước xấp xỉ dư thừa hoặc tối ưu hóa đường đi của mô hình.
+        \item \textbf{Ưu thế so với thiết kế cũ:} Loại bỏ bước xấp xỉ dư thừa hoặc tối ưu đường đi của mô hình.
     \end{itemize}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% Slide 3: Phương pháp luận & Công thức toán then chốt
+% Slide 3: Phương pháp luận và công thức toán then chốt
 % ------------------------------------------------------------------------------
-\begin{frame}{3. PAPER-NAME: Phương pháp luận toán học}
+\begin{frame}{3. TÊN-VIẾT-TẮT: Phương pháp luận toán học}
     \begin{itemize}
-        \item \textbf{Định nghĩa biến \& Quá trình:} Mô tả công thức nền tảng:
+        \item \textbf{Định nghĩa biến và quá trình:}
         $$z_t = \alpha_t x_1 + \beta_t x_0, \quad t \in [0, 1]$$
-        \item \textbf{Phương trình vi phân / Toán tử ánh xạ:}
+        \item \textbf{Phương trình vi phân hoặc toán tử ánh xạ:}
         $$\dot{x}_t = v_t(x_t), \quad \text{hoặc} \quad X_{s,t}(x_s) = x_t$$
         \item \textbf{Tính chất lý thuyết cốt lõi:}
         \begin{itemize}
             \item Tính chất 1: Bảo toàn không gian nghiệm hoặc nằm trọn trên miền xác suất hợp lệ.
-            \item Tính chất 2: Thỏa mãn điều kiện giải tích (ví dụ: semigroup property, Lipschitz continuity).
+            \item Tính chất 2: Thỏa điều kiện giải tích, ví dụ điều kiện nửa nhóm hoặc tính liên tục Lipschitz.
         \end{itemize}
     \end{itemize}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% Slide 4: Hàm mục tiêu & Cơ chế huấn luyện
+% Slide 4: Hàm mục tiêu và cơ chế huấn luyện
 % ------------------------------------------------------------------------------
-\begin{frame}{4. PAPER-NAME: Hàm mục tiêu \& Huấn luyện}
+\begin{frame}{4. TÊN-VIẾT-TẮT: Hàm mục tiêu và huấn luyện}
     \begin{itemize}
-        \item \textbf{Hàm mất mát chính (Loss Function):}
+        \item \textbf{Hàm mất mát chính:}
         $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{main}} + \lambda \mathcal{L}_{\text{aux}}$$
-        \item \textbf{Phân tích thành phần hàm loss:}
+        \item \textbf{Các thành phần của hàm mất mát:}
         \begin{itemize}
-            \item $\mathcal{L}_{\text{main}}$: Đảm bảo mô hình khớp với dữ liệu hoặc neo vào mô hình giáo viên.
+            \item $\mathcal{L}_{\text{main}}$: Khớp dữ liệu hoặc neo vào mô hình giáo viên.
             \item $\mathcal{L}_{\text{aux}}$: Ràng buộc điều hòa hoặc chưng cất bước nhảy.
         \end{itemize}
-        \item \textbf{Chiến lược lấy mẫu & Ổn định huấn luyện:}
+        \item \textbf{Chiến lược lấy mẫu và ổn định huấn luyện:}
         \begin{itemize}
-            \item Phân bổ thời gian (time schedule / reparameterization).
-            \item Kỹ thuật lấy mẫu biên hoặc warm-up tham số.
+            \item Phân bổ thời gian và tái tham số hóa thời gian.
+            \item Lấy mẫu biên hoặc khởi động tham số dần dần.
         \end{itemize}
     \end{itemize}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% Slide 5: Cơ chế suy luận & Dẫn hướng (Inference & Guidance)
+% Slide 5: Cơ chế suy luận và dẫn hướng
 % ------------------------------------------------------------------------------
-\begin{frame}{5. PAPER-NAME: Cơ chế suy luận (Inference)}
+\begin{frame}{5. TÊN-VIẾT-TẮT: Cơ chế suy luận}
     \begin{itemize}
-        \item \textbf{Thuật toán lấy mẫu (Sampling Algorithm):}
+        \item \textbf{Thuật toán lấy mẫu:}
         \begin{itemize}
-            \item Chế độ sinh ít bước (few-step / one-step) hoặc tích phân số nhiều bước (ODE/SDE).
+            \item Chế độ sinh ít bước hoặc một bước, hoặc tích phân số nhiều bước bằng ODE hay SDE.
             \item Công thức cập nhật trạng thái tại mỗi bước $t_n \to t_{n+1}$.
         \end{itemize}
-        \item \textbf{Cơ chế dẫn hướng (Inference Guidance):}
+        \item \textbf{Cơ chế dẫn hướng:}
         \begin{itemize}
-            \item \textit{Tự dẫn hướng (Autoguidance / CFG):} Tăng chất lượng mẫu không điều kiện.
-            \item \textit{Dẫn hướng theo phần thưởng (Reward Guidance):} Lái mẫu sinh theo thuộc tính mong muốn (sentiment, topic, logic constraints).
+            \item \textit{Tự dẫn hướng:} Tăng chất lượng mẫu không điều kiện.
+            \item \textit{Dẫn hướng theo phần thưởng:} Lái mẫu sinh theo thuộc tính mong muốn như cảm xúc, chủ đề, ràng buộc logic.
         \end{itemize}
     \end{itemize}
 \end{frame}
@@ -119,36 +123,46 @@
 % ------------------------------------------------------------------------------
 % Slide 6: Kết quả thực nghiệm
 % ------------------------------------------------------------------------------
-\begin{frame}{6. PAPER-NAME: Kết quả thực nghiệm}
-    \textbf{Đánh giá định lượng so với các Baselines:}
+\begin{frame}{6. TÊN-VIẾT-TẮT: Kết quả thực nghiệm}
+    \textbf{Đánh giá định lượng so với các phương pháp đối chứng:}
     \begin{itemize}
-        \item \textbf{Chất lượng mẫu (Perplexity / Accuracy / FID):}
+        \item \textbf{Chất lượng mẫu, ví dụ PPL, độ chính xác hoặc FID:}
         \begin{itemize}
-            \item Benchmark 1: PAPER-NAME đạt \textbf{X.XX} vs Baseline 1 (Y.YY), Baseline 2 (Z.ZZ).
-            \item Benchmark 2: Duy trì độ đa dạng cao, không bị sụp đổ mẫu (mode collapse).
+            \item Bộ dữ liệu 1: Phương pháp đạt \textbf{X.XX}, đối chứng 1 đạt Y.YY, đối chứng 2 đạt Z.ZZ.
+            \item Bộ dữ liệu 2: Giữ độ đa dạng cao, không sụp đổ mode.
         \end{itemize}
-        \item \textbf{Tốc độ \& Hiệu năng tính toán:}
+        \item \textbf{Tốc độ và hiệu năng tính toán:}
         \begin{itemize}
-            \item Tăng tốc độ suy luận gấp \textbf{k lần} so với các phương pháp trước.
-            \item Tiết kiệm số bước lấy mẫu và chi phí FLOPs.
+            \item Tăng tốc suy luận gấp \textbf{k lần}.
+            \item Tiết kiệm số bước lấy mẫu và FLOPs.
         \end{itemize}
     \end{itemize}
 \end{frame}
 
 % ------------------------------------------------------------------------------
-% Slide 7: Nghiên cứu triệt tiêu & Kết luận
+% Slide 7: Nghiên cứu loại bỏ thành phần
 % ------------------------------------------------------------------------------
-\begin{frame}{7. PAPER-NAME: Phân tích triệt tiêu \& Kết luận}
-    \textbf{Ablation Study (Kiểm chứng các quyết định thiết kế):}
+\begin{frame}{7. TÊN-VIẾT-TẮT: Nghiên cứu loại bỏ thành phần}
+    \textbf{Kiểm chứng các quyết định thiết kế:}
     \begin{itemize}
-        \item Yếu tố 1 (Hàm loss / Tham số hóa): Khẳng định lựa chọn A vượt trội hơn lựa chọn B.
-        \item Yếu tố 2 (Time schedule / Lấy mẫu): Chứng minh tầm quan trọng của kỹ thuật đề xuất.
+        \item Yếu tố 1, hàm mất mát hoặc cách tham số hóa: Lựa chọn A vượt lựa chọn B bao nhiêu.
+        \item Yếu tố 2, lịch thời gian hoặc cách lấy mẫu: Tầm quan trọng của kỹ thuật đề xuất.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 8: Hạn chế, phản biện và kết luận
+% ------------------------------------------------------------------------------
+\begin{frame}{8. TÊN-VIẾT-TẮT: Hạn chế, phản biện và kết luận}
+    \textbf{Hạn chế và điểm cần thận trọng:}
+    \begin{itemize}
+        \item Giả định ngầm hoặc thiết lập thực nghiệm chưa công bằng tuyệt đối.
+        \item Quy mô thí nghiệm, bộ dữ liệu, chỉ số đo còn hạn chế.
     \end{itemize}
     \vspace{0.2cm}
-    \textbf{Kết luận \& Hạn chế:}
+    \textbf{Kết luận:}
     \begin{itemize}
-        \item \textbf{Ưu điểm chính:} Đóng góp một giải pháp mới, hiệu quả và có cơ sở lý thuyết vững chắc.
-        \item \textbf{Hạn chế & Hướng tương lai:} Chi phí bộ nhớ hoặc hướng mở rộng cho các bài toán quy mô lớn hơn.
+        \item \textbf{Ưu điểm chính:} Một giải pháp mới, hiệu quả, có cơ sở lý thuyết.
+        \item \textbf{Hướng tương lai:} Mở rộng quy mô hoặc kết hợp với phương pháp khác.
     \end{itemize}
 \end{frame}
-

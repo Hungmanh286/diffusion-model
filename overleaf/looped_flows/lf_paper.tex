@@ -1,0 +1,254 @@
+% ==============================================================================
+% File: lf_paper.tex
+% Bài báo: Thinking with Looped Flows
+% Tác giả: Ayhan Suleymanzade, Chanhyuk Lee, Floor Eijkelboom, Nicholas M. Boffi,
+%          İsmail İlkan Ceylan, Jinwoo Kim (arXiv:2609.11801, 2026)
+% Nguồn số liệu: reports/2609.11801_looped_flows.md
+% ==============================================================================
+
+\section{Dòng vòng lặp Looped Flows}
+
+% ------------------------------------------------------------------------------
+% Slide 0: Tổng quan bài báo
+% ------------------------------------------------------------------------------
+\begin{frame}{Looped Flows: Tổng quan bài báo}
+    \begin{itemize}
+        \item \textbf{Tên bài báo:} \textit{Thinking with Looped Flows}
+        \item \textbf{Tác giả và tổ chức:} Ayhan Suleymanzade, Chanhyuk Lee, Jinwoo Kim, Nicholas M. Boffi et al., EPFL, KAIST, CMU và các nơi khác, arXiv:2609.11801
+        \item \textbf{Ý tưởng cốt lõi:} Huấn luyện mô hình vòng lặp bằng một chuỗi mục tiêu khử nhiễu cục bộ, thay vì lan truyền ngược qua nhiều bước lặp.
+        \item \textbf{Đóng góp nổi bật:}
+        \begin{itemize}
+            \item \textbf{Bộ khử nhiễu có trạng thái:} vừa khử nhiễu, vừa cập nhật trạng thái lặp. Nhiễu giảm dần và nhiễu dùng chung buộc trạng thái lặp mang thông tin hữu ích cho bước sau.
+            \item \textbf{Suy luận bằng tích phân dòng xác suất:} tăng tính toán qua lưới thời gian mịn hơn, và cho nhiều lời giải hợp lệ từ các mẫu nhiễu khác nhau.
+            \item \textbf{Kết quả:} ARC-AGI-1 đạt 58,8\% (TRM 44,6\%), ARC-AGI-2 đạt 12,2\% (TRM 7,8\%), Sudoku-Extreme đạt 97,9\%, chỉ với 5 đến 7M tham số.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 1: Bối cảnh và thách thức
+% ------------------------------------------------------------------------------
+\begin{frame}{1. Looped Flows: Bối cảnh và thách thức}
+    \textbf{Bối cảnh:} Bài toán khó cần nhiều tính toán hơn lúc suy luận. Mô hình vòng lặp cập nhật trạng thái ẩn nhiều lần để tích lũy tính toán.
+    \vspace{0.1cm}
+
+    \textbf{Ba khoảng trống của các hướng hiện có:}
+    \begin{itemize}
+        \item \textbf{Mô hình vòng lặp như HRM, TRM, FPRM:} lan truyền ngược qua toàn bộ chuỗi lặp vừa tốn bộ nhớ vừa bất ổn, nên phải chặn gradient. Mất mát ở bước $\ge i$ không gửi được tín hiệu cho trạng thái $z_{<i}$.
+        \item \textbf{Mô hình dòng và khuếch tán:} học khử nhiễu cục bộ, không cần lan truyền ngược qua quỹ đạo, nhưng không có trạng thái lặp, nên yếu với tính toán tuần tự.
+        \item \textbf{Mô hình vòng lặp ngẫu nhiên như PTRM, EqR, GRAM:} thêm tính ngẫu nhiên nhưng vẫn dựa vào gradient cục bộ để xây trạng thái lặp hữu ích toàn cục.
+    \end{itemize}
+    \vspace{0.1cm}
+    \textbf{Hậu quả:} chuỗi lặp bất ổn, rơi vào điểm hút giả hoặc không hội tụ, ngay cả ở bài toán đơn giản. Hướng giải quyết: kết hợp mục tiêu khử nhiễu cục bộ với trạng thái lặp.
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 2: Kiến thức nền
+% ------------------------------------------------------------------------------
+\begin{frame}{2. Looped Flows: Kiến thức nền}
+    \textbf{Mô hình vòng lặp:} $z_i = f(z_{i-1}; c)$, đầu đọc $\hat{x}_i = g(z_i)$. Thực tế huấn luyện với chặn gradient $\mathrm{sg}$:
+    $$\mathcal{L}_{\text{loop}} = \mathbb{E}_{c,x}\Big[\sum_i \mathrm{CE}(\hat{x}_i, x)\Big], \qquad z_i = f\big(\mathrm{sg}(z_{i-1}); c\big)$$
+    \begin{itemize}
+        \item Điểm yếu: mất mát ở bước $\ge i$ không truyền được về $z_{<i}$. Quá trình lặp xác định chỉ cho một lời giải.
+    \end{itemize}
+    \vspace{0.1cm}
+    \textbf{Khớp dòng cho dữ liệu phân loại:} nội suy $I_t = (1-t)x_0 + t x_1$, với $x_0 \sim \mathcal{N}(0,\sigma^2 I)$.
+    \begin{itemize}
+        \item Bộ khử nhiễu $D_t(x;c) = \mathbb{E}[x_1 \mid I_t = x, c]$, vận tốc $b_t(x;c) = \frac{D_t(x;c) - x}{1-t}$.
+        \item Hàm mục tiêu $\mathcal{L}_{\text{flow}} = \mathbb{E}\,[\mathrm{CE}(\hat{x}_t, x_1)]$ với $t \sim \mathcal{U}[0,1]$: mất mát tại $t$ không phụ thuộc tính toán ở $t' < t$, nên không cần lan truyền ngược qua quỹ đạo.
+        \item Điểm yếu: không có trạng thái, khó học tính toán tuần tự.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 3: Bộ khử nhiễu có trạng thái
+% ------------------------------------------------------------------------------
+\begin{frame}{3. Looped Flows: Bộ khử nhiễu có trạng thái}
+    \textbf{Ý tưởng:} Biến bộ khử nhiễu thành có trạng thái, vừa khử nhiễu trạng thái dòng $x_{t_i}$, vừa cập nhật trạng thái lặp $z_{t_i}$:
+    $$\big(\hat{x}_{t_i},\, z_{t_{i+1}}\big) = \hat{D}_{t_i}\big(x_{t_i},\, z_{t_i};\, c\big)$$
+    \begin{itemize}
+        \item Suy luận dùng bước Euler tiến trên lưới thời gian $0 = t_0 < \dots < t_n = 1$:
+        $$x_{t_{i+1}} = x_{t_i} + (t_{i+1} - t_i)\,\frac{\hat{x}_{t_i} - x_{t_i}}{1 - t_i}$$
+        \item \textbf{Kiến trúc:} xây trên TRM, thêm lớp chiếu cho nội suy nhiễu và nhúng thời gian, thêm khoảng 5\% tham số. Trạng thái lặp gồm hai thành phần, đặc trưng ẩn $h$ để giải mã dự đoán và thành phần $\ell$ để cập nhật $h$. Chỉ lan truyền ngược qua chu kỳ cuối của mỗi lần gọi.
+        \item \textbf{Quy mô:} 5M tham số cho Sudoku với MLP-Mixer, 7M tham số cho các tác vụ còn lại với Transformer.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 4: Huấn luyện
+% ------------------------------------------------------------------------------
+\begin{frame}{4. Looped Flows: Căn chỉnh theo thời gian}
+    \textbf{Hàm mục tiêu:} lấy $k+1$ mốc thời gian đều, sắp tăng dần $t_0 < \dots < t_k$, rồi cộng cross-entropy qua các bước:
+    $$\mathcal{L}_{\text{LF}} = \mathbb{E}\Big[\sum_{i=0}^{k-1} \mathrm{CE}(\hat{x}_{t_i}, x_1)\Big], \quad (\hat{x}_{t_i}, z_{t_{i+1}}) = \hat{D}_{t_i}\big(I_{t_i}, \mathrm{sg}(z_{t_i}); c\big)$$
+    \textbf{Hai thiết kế then chốt:}
+    \begin{itemize}
+        \item \textbf{Nhiễu giảm dần:} mức nhiễu $1 - t_i$ giảm theo thời gian, thành chuỗi bài khử nhiễu từ khó đến dễ.
+        \item \textbf{Nhiễu dùng chung:} cùng một cặp $(x_0, x_1)$ cho mọi $t_i$ trong một lần chạy. Các bước kề nhau có đầu vào gần nhau, nên trạng thái lặp $z_{t_i}$ vẫn hữu ích ở bước sau dù gradient chỉ phủ một bước.
+    \end{itemize}
+    \textbf{Mục tiêu giả:} khi dữ liệu ít, ví dụ 1000 mẫu Sudoku, nội suy ở $t$ lớn gần như lộ $x_1$ và gây overfit. Thay $x_1$ trong nội suy bằng dự đoán trước đó $\mathrm{sg}(\hat{x}_{t_{i-1}})$, xác suất dùng tăng tuyến tính từ 0 đến 1 trong 20 nghìn bước. Mất mát vẫn dùng $x_1$ thật.
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 5: ACT và chi tiết huấn luyện
+% ------------------------------------------------------------------------------
+\begin{frame}{5. Looped Flows: Thời gian tính toán thích ứng và cấu hình}
+    \begin{itemize}
+        \item \textbf{Vấn đề:} nhiễu giảm dần làm mất mát khử nhiễu giảm đơn điệu và bão hòa, các bước cuối không còn tín hiệu học.
+        \item \textbf{Đầu dừng $q$} là bộ phân loại nhị phân xem dự đoán hiện tại đã đúng chưa:
+        $$\mathcal{L}_{\text{ACT}} = \mathbb{E}\Big[\sum_{i} \lambda\,\mathrm{BCE}\big(q(z_{t_{i+1}}),\, \mathbb{1}(x_1 = \mathrm{round}(\hat{x}_{t_i}))\big)\Big]$$
+        Khi $q > 1/2$, các bước sau bị bỏ qua lúc huấn luyện. Tổng mất mát $= \mathcal{L}_{\text{LF}} + \mathcal{L}_{\text{ACT}}$, $\lambda = 0{,}5$.
+        \item \textbf{Cấu hình:} $k = 16$ bước, Adam-atan2, tốc độ học đỉnh $10^{-4}$, batch 768, EMA 0,999, cắt gradient 1,0.
+        \item \textbf{Tài nguyên:} khoảng 1 đến 5 giờ cho Sudoku, Maze, N-Queens, Graph Coloring. Khoảng 1 đến 2 ngày cho ARC.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 6: Suy luận
+% ------------------------------------------------------------------------------
+\begin{frame}{6. Looped Flows: Cơ chế suy luận}
+    \begin{itemize}
+        \item \textbf{Tích phân xác định bằng ODE:} bước Euler tiến, mỗi lần gọi bộ khử nhiễu cập nhật cả $x$ và $z$.
+        \item \textbf{Tích phân ngẫu nhiên bằng SDE:} tương đương SDE của dòng xác suất, thực hiện bằng lùi nhiễu. Mỗi bước đẩy $x_{t_i}$ lùi về thời điểm $s = a\,t_i$, thêm nhiễu mới, rồi bước Euler tới $t_{i+1}$. Hệ số $\gamma = 0$ quay về ODE, $\gamma > 0$ thêm tính ngẫu nhiên.
+        \item \textbf{Mở rộng tính toán lúc suy luận:}
+        \begin{itemize}
+            \item \textbf{Lưới thời gian mịn hơn lúc huấn luyện.} Sudoku huấn luyện 16 bước nhưng suy luận 128 bước.
+            \item \textbf{Tổ hợp chọn mẫu theo điểm Q cao nhất:} chạy nhiều quỹ đạo độc lập, thường 5, chọn dự đoán có xác suất thành công cao nhất theo đầu dừng $q$.
+        \end{itemize}
+        \item \textbf{Nhiều lời giải hợp lệ:} xuất phát từ các mẫu nhiễu $x_0$ khác nhau, vận chuyển xác suất tới các mode khác nhau của $p_{\text{data}}(x \mid c)$. Mô hình vòng lặp xác định chỉ cho một lời giải mỗi bài.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 7: Kết quả chính
+% ------------------------------------------------------------------------------
+\begin{frame}{7. Looped Flows: Kết quả trên các bài toán suy luận}
+    \textbf{Độ chính xác lời giải, phần trăm. ARC dùng pass@2. Looped Flows chạy ba hạt giống.}
+    \begin{table}[h]
+        \centering
+        \small
+        \begin{tabular}{lcccc}
+            \toprule
+            \textbf{Phương pháp} & \textbf{Sudoku-Extreme} & \textbf{Maze-Hard} & \textbf{ARC-AGI-1} & \textbf{ARC-AGI-2} \\
+            \midrule
+            HRM, 27M & 55,0 & 74,5 & 40,3 & 5,0 \\
+            TRM, 5 đến 7M & 87,4 & 85,3 & 44,6 & 7,8 \\
+            FPRM, 7M & 94,2 & \textbf{87,0} & 47,5 & 6,2 \\
+            GRAM, 10M & -- & -- & 52,0 & 11,1 \\
+            \midrule
+            \textbf{Looped Flows, 5 đến 7M} & \textbf{97,9 $\pm$ 0,4} & 86,7 $\pm$ 1,1 & \textbf{58,8 $\pm$ 1,8} & \textbf{12,2 $\pm$ 1,9} \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{-0.2cm}
+    \begin{small}
+    \begin{itemize}
+        \item Tốt nhất ở 3 trong 4 bài; Maze-Hard chỉ ngang FPRM, bài báo không giải thích.
+        \item Tổ hợp 5 quỹ đạo: Sudoku 99,3, Maze 86,9, ARC-AGI-1 59,5, ARC-AGI-2 12,2. Cạnh tranh với PTRM dùng 100 quỹ đạo và EqR dùng 128 quỹ đạo.
+        \item Độ lệch chuẩn trên ARC khoảng 1,8 đến 1,9 điểm: kết quả nhạy với hạt giống.
+    \end{itemize}
+    \end{small}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 8: Mở rộng lúc suy luận và độ ổn định
+% ------------------------------------------------------------------------------
+\begin{frame}{8. Looped Flows: Mở rộng lúc suy luận và độ ổn định}
+    \textbf{Tăng số bước tích phân trên Sudoku:}
+    \begin{center}
+        \small
+        \begin{tabular}{lccccc}
+            \toprule
+            \textbf{Số bước} & 8 & 16 & 32 & 64 & 128 \\
+            \midrule
+            \textbf{Độ chính xác (\%)} & 74,5 & 85,2 & 93,0 & 96,7 & 97,9 \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+    \begin{itemize}
+        \item Vượt GRAM tại 32 bước.
+    \end{itemize}
+    \vspace{0.1cm}
+    \textbf{Độ ổn định của chuỗi lặp, trên khoảng 65 nghìn bài Sudoku-Extreme:}
+    \begin{itemize}
+        \item TRM thất bại ở 12,6\% số bài: 88,3\% do không hội tụ, 11,7\% do điểm hút giả.
+        \item Looped Flows cứu được \textbf{90,9\%} các bài TRM thất bại: 89,9\% trường hợp không hội tụ và 98,0\% trường hợp điểm hút giả.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 9: Đa lời giải
+% ------------------------------------------------------------------------------
+\begin{frame}{9. Looped Flows: Bài toán đa lời giải}
+    \textbf{So sánh với GRAM. Độ phủ là tỉ lệ lời giải thật được tìm thấy.}
+    \begin{table}[h]
+        \centering
+        \small
+        \begin{tabular}{llcc}
+            \toprule
+            \textbf{Bài toán} & \textbf{Chỉ số} & \textbf{GRAM} & \textbf{Looped Flows} \\
+            \midrule
+            N-Queens 8$\times$8 & Độ chính xác & 99,7 & \textbf{99,9} \\
+            & Độ phủ & 90,3 & \textbf{91,4} \\
+            N-Queens 10$\times$10 & Độ chính xác & 96,1 & 94,4 \\
+            & Độ phủ & \textbf{74,3} & 61,5 \\
+            \midrule
+            Tô màu đồ thị 8 đỉnh & Số xung đột $\downarrow$ & 2,7 & \textbf{0,7} \\
+            & Độ phủ & 85,8 & \textbf{89,4} \\
+            Tô màu đồ thị 10 đỉnh & Số xung đột $\downarrow$ & 3,3 & \textbf{1,0} \\
+            & Độ phủ & 51,3 & \textbf{55,2} \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{-0.2cm}
+    \begin{itemize}
+        \item Trên N-Queens 10$\times$10, GRAM vẫn hơn ở cả độ chính xác và độ phủ. Looped Flows tốt nhất ở 6 trong 8 chỉ số.
+    \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 10: Nghiên cứu loại bỏ thành phần
+% ------------------------------------------------------------------------------
+\begin{frame}{10. Looped Flows: Nghiên cứu loại bỏ thành phần}
+    \textbf{Khi huấn luyện, trên ARC-AGI-1 và ARC-AGI-2:}
+    \begin{center}
+        \small
+        \begin{tabular}{lcc}
+            \toprule
+            \textbf{Cấu hình} & \textbf{ARC-AGI-1} & \textbf{ARC-AGI-2} \\
+            \midrule
+            \textbf{Đầy đủ} & \textbf{58,8} & \textbf{12,2} \\
+            Bỏ điều kiện thời gian & 56,4 & 9,9 \\
+            Bỏ nội suy & 51,5 & 9,9 \\
+            Bỏ cả hai & 43,6 & 5,0 \\
+            Bỏ nhiễu giảm dần & 51,6 & 9,9 \\
+            Bỏ nhiễu dùng chung & 56,4 & 10,8 \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+    \begin{small}
+    \begin{itemize}
+        \item Nhiễu giảm dần quan trọng nhất; nhiễu dùng chung ít hơn nhưng vẫn giúp. Bỏ cả hai thành phần dòng thì ngang TRM (43,6 so với 44,6).
+        \item \textbf{Lúc suy luận:} SDE với $\gamma = 5$ nhất quán tốt hơn ODE, ví dụ Sudoku 97,9 so với 97,6, ARC-AGI-1 58,8 so với 57,5.
+        \item \textbf{Trên Sudoku:} dòng không vòng lặp ghi nhớ dữ liệu, tổng quát hóa kém; tự điều kiện hóa tốt hơn; Looped Flows tốt nhất.
+    \end{itemize}
+    \end{small}
+\end{frame}
+
+% ------------------------------------------------------------------------------
+% Slide 11: Hạn chế, phản biện và kết luận
+% ------------------------------------------------------------------------------
+\begin{frame}{11. Looped Flows: Hạn chế, phản biện và kết luận}
+    \small
+    \textbf{Hạn chế và điểm cần thận trọng:}
+    \begin{itemize}
+        \item Chưa có lý thuyết cho căn chỉnh theo thời gian. Nhiễu dùng chung về lý thuyết cho phép đường tắt triệt nhiễu; bài báo chỉ cho thấy gián tiếp rằng mô hình không dùng nó.
+        \item Lệch phân phối giữa huấn luyện dùng nội suy $I_{t_i}$ và suy luận dùng $x_{t_i}$ từ bước Euler trước. Bài báo không bàn tới.
+        \item Mô hình 5 đến 10M tham số, chỉ trên câu đố suy luận, nhiều siêu tham số riêng cho từng tác vụ. Nghiên cứu loại bỏ chỉ trên ARC.
+        \item Huấn luyện vẫn cần chạy tuần tự $k$ bước, chưa phải huấn luyện không mô phỏng.
+    \end{itemize}
+    \textbf{Kết luận:}
+    \begin{itemize}
+        \item Mục tiêu khử nhiễu cục bộ cộng căn chỉnh theo thời gian huấn luyện được trạng thái lặp ổn định, kể cả khi gradient chỉ phủ một bước.
+        \item Cho phép mở rộng tính toán lúc suy luận và sinh nhiều lời giải. \textbf{Hướng tiếp theo:} huấn luyện không mô phỏng, quy mô lớn hơn.
+    \end{itemize}
+\end{frame}
