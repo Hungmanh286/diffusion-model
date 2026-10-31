@@ -3,7 +3,11 @@
 Bài chính: *Thinking with Looped Flows* (arXiv:2609.11801). Bài tham chiếu: GRAM (arXiv:2605.19376v4).
 Tài liệu liên quan: `SPEC_TABLE2.md` (mục tiêu, dữ liệu, mơ hồ), `DEVIATIONS.md` (sai khác so với bài, chờ duyệt).
 
-**Trạng thái: CHỐT cho phiên 30/10/2026. Kế hoạch đã đóng băng, chưa có code. Các mục chờ duyệt nằm ở Mục 8 (danh sách tick) để bạn duyệt ở phiên sau. Chưa bắt đầu M1.**
+**Trạng thái: HOÀN THIỆN ngày 31/10/2026, chờ bạn duyệt. Chưa có code, chưa cài gì, chưa chạy lệnh nào trên server.**
+
+Thay đổi so với bản chốt 30/10/2026: thêm Mục 3A (server RTX 4090, số liệu do bạn báo), Mục 4A (cấu hình chuẩn `nq8.yaml`, mỗi giá trị kèm nguồn), Mục 5.0 (tổng quan mốc), viết lại M0, M5 (phần phần cứng) và M6 (P0, P1, ngân sách) cho máy dùng chung, thêm Mục 6A (ước lượng chi phí tính toán), rủi ro số 9 (Mục 6), Q18–Q20 (8.3), và Mục 8.0 (duyệt nhanh). Các quyết định kỹ thuật D1–D10 không đổi.
+
+**Cách duyệt ngắn nhất:** Mục 8.0. Trả lời "duyệt mặc định" thì mọi mục chưa tick áp dụng đề xuất ghi ở đó; riêng DEV-01 và D4 vẫn có điều kiện.
 
 **Quy ước nhãn bằng chứng**
 - `[ĐÃ XÁC MINH <nguồn>]`: đọc trực tiếp trong mã hoặc bài, có vị trí.
@@ -107,11 +111,75 @@ Thay đổi so với bản kế hoạch trước: ước lượng "≈ 28k bư�
 
 ## 3. Phần cứng
 
-Dòng `[GPU: ...]` bạn gửi **để trống**. **Kế hoạch hiện chưa phụ thuộc phần cứng.** M5 và M6 được viết theo kiểu *đo trước, quyết sau*, không cố định số bước hay kích thước micro-batch.
+Hai máy, hai vai trò (đề xuất, chờ Q9 và Q16):
 
-Quan sát (không phải thông tin bạn cung cấp, chỉ để tham khảo): `nvidia-smi` trên máy này báo **NVIDIA GeForce RTX 3050 Laptop GPU, 4096 MiB, compute capability 8.6**, driver 595.99.02. Ổ đĩa còn 51 GB. Chưa có `torch`, `pytest`, `nvcc`. Nếu đây là máy huấn luyện, batch 768 có thể không vừa bộ nhớ và cần gradient accumulation. Đó là điều pilot M6 sẽ đo, không phải kết luận.
+| Máy | Vai trò đề xuất | Nguồn thông tin |
+|---|---|---|
+| Máy cục bộ (laptop) | Soạn thảo, đọc tài liệu; unit test CPU nếu cần | Quan sát ngày 31/10/2026: `nvidia-smi` báo **RTX 3050 Laptop GPU, 4096 MiB, compute capability 8.6**, ổ `/` còn 51 GB; chưa có `torch`, `pytest`, `nvcc` (kiểm ở lượt đầu của phiên 30/10, chưa kiểm lại) |
+| Server production (Mục 3A) | Cài môi trường, test, pilot và huấn luyện 3 seed | `[BẠN BÁO 31/10/2026]` |
 
-Khi bạn điền dòng GPU, tôi sẽ cập nhật mục này và chỉnh M5, M6.
+Batch 768 trên 4 GB của laptop chưa chắc vừa; vì vậy huấn luyện không đặt ở laptop. Kế hoạch vẫn viết theo kiểu *đo trước, quyết sau* cho kích thước micro-batch (M6, P0).
+
+Nếu bạn chọn chỉ dùng một máy, Mục 3A.3 vẫn đúng; chỉ M0 đổi chỗ cài.
+
+---
+
+## 3A. Server huấn luyện ứng viên (RTX 4090, máy dùng chung)
+
+**Nguồn:** tin nhắn của bạn ngày 31/10/2026. Tôi **chưa tự kiểm lại** (chưa chạy lệnh nào trên server), nên mọi số liệu ở 3A.1 mang nhãn `[BẠN BÁO]`. Mục này **chưa trả lời Q9 và Q16**: đó là quyết định của bạn (xem 3A.5).
+
+### 3A.1 Số liệu bạn báo `[BẠN BÁO 31/10/2026]`
+
+| Thành phần | Thông tin |
+|---|---|
+| Máy | `asus`, Ubuntu 22.04.5, kernel 6.8.0, đã chạy 7 ngày 22 giờ. **Server production của team, không phải máy riêng để train** |
+| CPU | 2× Xeon Gold 6138, 40 core / 80 thread. Load trung bình ≈ 4. GitLab Runner có lúc dùng tới 180% CPU |
+| RAM | 251 GB, đang dùng 76 GB, available ≈ 171 GB. Swap 32 GB |
+| GPU | 1× RTX 4090, 24 GB, compute capability 8.9 (bf16 và flash-attn dùng được). Đang dùng 8.3 GB, **trống ≈ 15.7 GB**, utilization 0%, 47°C |
+| Driver / CUDA | Driver 580.178, CUDA runtime 13.0, `nvcc` 13.1 |
+| Tiến trình giữ VRAM | PID 6532 `main_api.py` 3.1 GB; PID 14199 và 14200 (`python`, multiprocessing) 2.5 GB mỗi cái. Chạy liên tục 7 ngày, có thể tăng VRAM khi có request |
+| Ổ `/` (NVMe) | 916 GB, 96% đầy, **còn 42 GB**. Cache HuggingFace, pip, tmp mặc định nằm ở đây |
+| Ổ `/dataD` (HDD, ROTA=1) | 19 TB, còn 13 TB. Thư mục project nằm ở đây |
+| Python | Hệ thống 3.10.12, **chưa có `torch`**; có `transformers` 4.50.3, `triton` 3.2.0, `numpy` 2.1.3; không có `accelerate`, `deepspeed`, `flash-attn`, `peft`, `trl`. Có `uv` và `conda` (env: `3d_tour`, `mcp`, `nerfstudio`, `vivoxcpm`; chưa kiểm env nào có `torch`) |
+| Dịch vụ khác | GitLab CE + Runner, Postgres, ClickHouse, MinIO, Tomcat, MLflow (cổng 5000), pgAdmin, các API AI (cổng 8333, 8444, 8123, 8885...), node_exporter. Không có job train nào đang chạy |
+
+### 3A.2 Điểm cần lưu ý trong chính số liệu
+
+- Ba tiến trình GPU cộng lại $3.1 + 2.5 + 2.5 = 8.1$ GB, còn tổng báo là 8.3 GB. Chênh 0.2 GB là tiến trình hoặc ngữ cảnh không hiện trong danh sách, nên **danh sách tiến trình GPU có thể chưa đầy đủ**. Không ảnh hưởng kế hoạch, nhưng không nên coi 15.7 GB là con số cố định.
+- Hai tiến trình `text-embeddings-router` dùng RAM, không hiện trong danh sách GPU (bạn báo vậy). Không biết chúng có chuyển lên GPU sau này hay không.
+- Đường dẫn gốc của project trên server (dưới `/dataD`) chưa được nêu. Kế hoạch dùng ký hiệu `$SRV_ROOT` cho đến khi bạn cho biết.
+
+### 3A.3 Tác động lên kế hoạch
+
+Cột "Nhãn": `[SUY LUẬN]` là hệ quả tính từ số liệu trên và các mục khác của kế hoạch; `[GIẢ ĐỊNH]` là lựa chọn của người lập kế hoạch, chờ bạn duyệt; `[CHƯA XÁC MINH]` phải kiểm ở M0.
+
+| Mốc | Tác động | Nhãn |
+|---|---|---|
+| M0, môi trường | Tạo env **mới** bằng `uv` trong `$SRV_ROOT/.venv`. Không cài vào Python hệ thống, không dùng lại 4 env conda sẵn có (tránh làm hỏng env của người khác). Ghi lại `torch.version.cuda`, `torch.cuda.is_available()`, `nvcc --version` vào `DEVIATIONS.md` | `[GIẢ ĐỊNH]` |
+| M0, biến môi trường | Đặt **trước khi cài bất cứ gì**: `HF_HOME`, `TORCH_HOME`, `XDG_CACHE_HOME`, `TMPDIR`, `UV_CACHE_DIR`, `PIP_CACHE_DIR`, `TRITON_CACHE_DIR`, `TORCH_EXTENSIONS_DIR` (nơi dựng extension `adam_atan2_backend`), tất cả trỏ về `$SRV_ROOT/cache/...`. Lý do: `/` chỉ còn 42 GB và 96% đầy, đầy ổ này có thể làm sập dịch vụ khác. Tập lệnh `env_server.sh` sẽ gom các biến này | `[SUY LUẬN]` từ 3A.1 |
+| M0, kiểm tra | Sau khi cài, `df -h /` phải **không đổi đáng kể** (so với trước khi cài); nếu `/` giảm hơn vài trăm MB thì có biến cache bị sót | `[GIẢ ĐỊNH]` |
+| DEV-01, phương án A | Thuận lợi hơn máy cục bộ: server **có `nvcc` 13.1** (máy cục bộ không có). Compute capability 8.9 nằm trong danh sách `{80, 86, 89, 90}` của `setup.py` (mục 2.5). Bình luận "Needs testing on consumer GPUs" trong mã vẫn áp dụng cho 4090. **Rủi ro cần kiểm:** dựng extension cần `torch` được build cho CUDA 13.x để khớp `nvcc` 13.1. Chưa xác minh có wheel `torch` cho CUDA 13 ở thời điểm cài. Nếu không khớp, dừng và chờ bạn duyệt phương án B như M0 đã ghi | `[CHƯA XÁC MINH]` |
+| M5, bộ nhớ | Mô hình khoảng 7M tham số (M3), nhỏ so với 15.7 GB; thứ quyết định là bộ nhớ activation ở batch 768, **chưa đo**. P0 đo đỉnh bộ nhớ thật. Đặt **trần VRAM cho tiến trình train ≈ 12 GB** (≈ $15.7 - 3.7$, chừa ≥ 2–3 GB như bạn khuyến nghị, cộng thêm biên cho 0.2 GB chưa rõ), bằng `torch.cuda.set_per_process_memory_fraction(0.5)`. Vượt trần ở P0 thì dùng gradient accumulation (đã nêu ở M5, M6) | `[GIẢ ĐỊNH]` |
+| M5, M6, dữ liệu | Bộ dữ liệu chỉ 8,464 dòng $\times$ 64 token (M1), nhỏ hơn nhiều so với RAM. Nạp hết vào bộ nhớ (hoặc GPU), `num_workers = 0`. HDD không phải nút cổ chai cho dữ liệu; chỉ log và checkpoint ghi xuống `/dataD` | `[SUY LUẬN]` |
+| M6, đo thời gian | GPU dùng chung, nên **giây/batch có thể nhiễu** khi các API có request. Mỗi lần đánh giá ghi thêm `nvidia-smi` (utilization và VRAM của các tiến trình khác). Giới hạn "6 giờ" của P1 là thời gian thực, không so sánh công bằng giữa hai lần chạy; so sánh theo số batch | `[SUY LUẬN]` |
+| `train.py` | **Thêm yêu cầu**: lưu checkpoint định kỳ (trọng số, trạng thái optimizer, EMA, bộ sinh số ngẫu nhiên, số batch đã chạy) và hỗ trợ `--resume`. Lý do: job dài trên máy dùng chung có thể bị OOM hoặc máy khởi động lại; SSH ngắt không được làm mất tiến độ | `[GIẢ ĐỊNH]` |
+| Cách chạy | Chạy trong `tmux` hoặc `nohup`, ghi log vào `$SRV_ROOT/.../runs/`. Đặt `OMP_NUM_THREADS=4`, chạy với `nice -n 10` để nhường CPU cho GitLab Runner và các API | `[GIẢ ĐỊNH]` (con số 4 và 10 chờ bạn chỉnh) |
+
+### 3A.4 Quy tắc an toàn trên máy production
+
+1. Trước mỗi lần chạy kiểm `nvidia-smi`: VRAM trống phải $\ge$ trần train + 2 GB dự phòng, nếu không thì **không chạy**, báo bạn.
+2. Không dừng, không đổi mức ưu tiên của tiến trình thuộc dịch vụ khác. Không dùng các cổng 5000, 8333, 8444, 8123, 8885 (nếu mở TensorBoard hay MLflow riêng thì chọn cổng khác và hỏi bạn trước).
+3. Không dùng `sudo`, không đổi cấu hình hệ thống, không cài gói vào Python hệ thống.
+4. Nếu OOM xảy ra, giảm micro-batch và dùng `--resume`; **không** tăng trần VRAM mà không hỏi bạn.
+5. Mọi lệnh tôi chạy trên server ở M0 chỉ đọc hoặc nằm trong `$SRV_ROOT`, và được ghi lại trong `DEVIATIONS.md` hoặc nhật ký M0.
+
+### 3A.5 Việc cần bạn quyết
+
+Chưa tick gì thay bạn. Hai câu hỏi cũ và hai câu mới (8.3):
+
+- **Q9** (dòng GPU): ứng viên là RTX 4090 24 GB, trống ≈ 15.7 GB, dùng chung.
+- **Q16** (môi trường chạy): nếu chọn server này, phương án mặc định "unit test cục bộ, huấn luyện trên GPU lớn hơn" tương ứng với "unit test ở máy laptop, huấn luyện ở server 4090". H100 vẫn là lựa chọn khác.
+- **Q18**, **Q19**, **Q20** (cách tôi chạy lệnh trên server): xem 8.3.
 
 ---
 
@@ -122,7 +190,11 @@ implement/looped_model/
 ├── SPEC_TABLE2.md                 (đã có)
 ├── PLAN_TABLE2.md                 (file này)
 ├── DEVIATIONS.md                  sai khác so với bài, mỗi mục có trạng thái duyệt
-├── configs/nq8.yaml               siêu tham số từ Table 6 và App. E.1; không hard-code
+├── configs/nq8.yaml               siêu tham số từ Table 6 và App. E.1 (xem 4A); không hard-code
+├── ops/
+│   ├── env_server.sh              đặt các biến cache về $SRV_ROOT, OMP_NUM_THREADS (3A.3); source trước mọi lệnh
+│   ├── preflight.sh               kiểm nvidia-smi, df, tiến trình train đang chạy; thoát lỗi nếu vi phạm 3A.4
+│   └── run_train.sh               chạy train trong tmux, nice, ghi log vào runs/; hỗ trợ --resume
 ├── ref/                           thư mục tham chiếu cố định (M0): TRM đúng commit c011037
 ├── lf/
 │   ├── data_nqueens.py            sinh lời giải, instance, chia theo input, mã hoá token
@@ -139,18 +211,68 @@ implement/looped_model/
 └── runs/                          log, checkpoint, kết quả (không commit)
 ```
 
+`runs/` và `ref/` phải nằm trong `.gitignore`. Trên server, `$SRV_ROOT` chứa repo, env, cache và `runs/`; toàn bộ ở `/dataD`.
+
+---
+
+## 4A. Cấu hình chuẩn `configs/nq8.yaml`
+
+Mọi giá trị đọc từ file cấu hình, không hard-code. "Nguồn" tính theo `SPEC_TABLE2.md` (đã đối chiếu với `papers/2609.11801.pdf`) và Mục 2 của plan này.
+
+| Nhóm | Tham số | Giá trị | Nguồn / nhãn |
+|---|---|---|---|
+| Dữ liệu | Từ vựng, độ dài | $\lvert V\rvert = 3$ (0=pad, 1=empty, 2=queen), $L = 64$ | D3 (GRAM); `[ĐÃ DUYỆT]` |
+| Dữ liệu | Quân bị ẩn, chia dữ liệu | $k \in \{5,6,7\}$, chia 85:15 theo input duy nhất, một hạt giống chia cố định | §5.2 tr.8; GRAM App. C.2 tr.21; D9, D10 |
+| Mô hình | Kiến trúc | 2 lớp, độ rộng 512, 8 đầu, noncausal, RoPE, SwiGLU 1536, RMSNorm sau cộng residual | App. A tr.14 |
+| Mô hình | Chu trình | $m = 4$; mỗi lần gọi denoiser lặp 3 chu trình, 2 chu trình đầu không gradient (15 lần gọi $F_\theta$) | App. A tr.14 |
+| Mô hình | $z_0$, đầu ACT | Hai vector cố định kiểu TRM; đầu $q$ khởi tạo trọng số 0, bias −5; vị trí đọc theo Q1 | Mục 2.1, 2.2; `[GIẢ ĐỊNH]` cho cách LF dùng |
+| Flow | $\sigma$, time sampler, pseudotargets | $\sigma = 1$, `sorted`, không | Table 6 tr.16 |
+| Loss | Hàm, $k$, $\lambda$, exploration | mean StableMax CE (float64), $k = 16$, $\lambda = 0.5$, 0.1 | App. E.1 tr.16; Mục 2.4 |
+| Tối ưu | Optimizer | Adam-atan2, $(\beta_1,\beta_2) = (0.9, 0.95)$, theo DEV-01 | App. E.1 tr.16 |
+| Tối ưu | LR | đỉnh $10^{-4}$, warmup 2k bước, sau đó hằng số | App. E.1 tr.16; Table 6 |
+| Tối ưu | Weight decay, batch, clip, EMA | 1.0, 768, 1.0, 0.999 | Table 6; App. E.1 |
+| Số học | Độ chính xác | bf16 theo bài. **Cách áp dụng KHÔNG NÊU**; đề xuất autocast bf16, tham số và trạng thái optimizer ở float32, StableMax CE float64 | `[GIẢ ĐỊNH]` ngoài CE; ghi vào `DEVIATIONS.md` nếu bạn muốn khác |
+| Suy luận | Bước, $\gamma$, lưới | $n = 128$, $\gamma = 5.0$, lưới đều | Table 6; D6 chờ duyệt |
+| Đánh giá | Số lần suy luận | 20 độc lập mỗi input; accuracy chỉ mẫu đầu | §5.2 tr.8 |
+| Đánh giá | Trọng số | EMA là số chính, kèm trọng số thô | D7 chờ duyệt |
+| Seed | Huấn luyện | 3 seed `0, 1, 2` (`[GIẢ ĐỊNH]`); một hạt giống chia dữ liệu riêng | Q8; D10 |
+
+Các giá trị **không** có trong bảng vì bài **KHÔNG NÊU** và plan không tự đoán: số bước huấn luyện (D8, quyết sau pilot), kích thước tập train và test của bài.
+
 ---
 
 ## 5. Các mốc, test và cổng
 
-Mỗi mốc phải qua cổng mới sang mốc sau. Mốc đầu tiên tôi sẽ làm khi bạn duyệt là M1.
+Mỗi mốc phải qua cổng mới sang mốc sau. Mốc đầu tiên tôi sẽ làm khi bạn duyệt là M0.
 
-### M0. Môi trường (không cần GPU)
+### 5.0 Tổng quan
 
-- Tạo môi trường Python, cài `torch`, `pytest`, `numpy`.
-- Clone TRM đúng commit `c011037...` vào `ref/` (read-only, chỉ để đối chiếu).
-- Thử cài `adam-atan2==0.0.3` (phương án A của DEV-01). Ghi kết quả vào `DEVIATIONS.md`. **Nếu không cài được, dừng và chờ bạn duyệt phương án B** trước khi làm M3 trở đi.
-- Cổng: `pytest` chạy được trên CPU. Kết quả của việc cài Adam-atan2 đã được ghi lại.
+| Mốc | Nội dung | Cần GPU | Bị chặn bởi | Sản phẩm kiểm được |
+|---|---|---|---|---|
+| M0 | Môi trường, tham chiếu TRM, thử Adam-atan2 | Chỉ kiểm CUDA | Q18, Q19 (nếu làm trên server) | Nhật ký M0, `DEVIATIONS.md` cập nhật |
+| M1 | Sinh dữ liệu | Không | (không) | Bảng giá trị chuẩn M1 đạt hết |
+| M2 | Metric | Không | (không) | Test M2 đạt |
+| M3 | Mô hình, optimizer | Không (CPU, mô hình nhỏ); thêm 1 lần kiểm trên GPU | DEV-01, Q1 | Test M3 đạt |
+| M4 | Lõi flow, sampler | Không | D4 | Test M4 đạt với oracle |
+| M5 | Overfit nhỏ | Tuỳ chọn trên CPU; kiểm GPU một lần | Q2, Q3, Q9, Q18 | 4 thí nghiệm M5 |
+| M6 | Pilot, rồi 3 seed | **Có** | Q10, D8, Q15, Q16 | Đường cong pilot; kết quả 3 seed |
+| M7 | Đối chiếu | Có (suy luận) | M6 | Bảng so với Table 2, 5, 7 |
+
+M0, M1, M2 không bị chặn bởi quyết định kỹ thuật nào (xem Mục 9).
+
+### M0. Môi trường
+
+Thứ tự. Mỗi bước chỉ **đọc** hoặc nằm trong `$SRV_ROOT`; ghi nhật ký từng bước.
+
+1. **Preflight (chỉ đọc)**: `nvidia-smi`, `df -h / /dataD`, `which uv conda nvcc`, `nvcc --version`, `python3 --version`. So với số bạn báo ở 3A.1; ghi chênh lệch (nếu có) vào nhật ký M0.
+2. Tạo `$SRV_ROOT`, `ops/env_server.sh` (các biến ở 3A.3), `source` nó. In ra các biến để xác nhận, rồi chụp `df -h /` làm mốc.
+3. Tạo env `uv` trong `$SRV_ROOT/.venv`. Cài `torch` (bản CUDA khớp driver 580 và `nvcc` 13.x; **chưa xác minh có wheel nào, kiểm tại chỗ**), `numpy`, `pytest`, `pyyaml`. Không cài `flash-attn` (không cần; mô hình dùng attention chuẩn của PyTorch).
+4. Kiểm: `torch.cuda.is_available()`, `torch.version.cuda`, tên GPU, tính một phép nhân ma trận bf16 nhỏ trên GPU. In `df -h /` và so với mốc ở bước 2; chênh lệch lớn thì dừng và tìm biến cache bị sót.
+5. Clone TRM đúng commit `c01103738605ba39d1430519b1ee0c62f4c707f8` vào `ref/` (chỉ đọc; xem Mục 9). Dùng làm nguồn đối chiếu số dòng ở Mục 2.
+6. Thử cài `adam-atan2==0.0.3` (phương án A của DEV-01), có `TORCH_EXTENSIONS_DIR` và `TMPDIR` đã trỏ về `/dataD`. Ghi kết quả (thành công, hoặc thông báo lỗi nguyên văn) vào `DEVIATIONS.md`. **Nếu không cài được, dừng và chờ bạn duyệt phương án B** trước khi làm M3 trở đi.
+7. (Tuỳ chọn, nếu bạn muốn test ở laptop) env CPU riêng ở laptop với `torch` bản CPU.
+
+- Cổng: `pytest` chạy được (một test mẫu); `torch` thấy GPU; `df -h /` không đổi đáng kể; kết quả cài Adam-atan2 đã được ghi lại.
 
 ### M1. Bộ sinh dữ liệu (`data_nqueens.py`)
 
@@ -217,7 +339,7 @@ Theo Algorithm 1 [tr.4]: **một bước gradient cho mỗi bước denoising** 
 2. **Overfit tập nhỏ một lời giải**: khoảng 64 input có đúng một lời giải; lấy mẫu từ nhiễu đạt accuracy 100% khi chạy đủ bước.
 3. **Overfit một input nhiều lời giải**: ví dụ một input có 3 lời giải. 20 mẫu phải phủ **gần đủ** các lời giải với tỉ lệ không quá lệch. Test này chứng minh phần "nhiều lời giải" hoạt động, nằm trước khi tốn tính toán đầy đủ.
 4. **Ablation định tính nhanh**: tắt chia sẻ nhiễu hoặc tắt nhiễu giảm dần để thấy ít nhất một hướng giảm (Table 3 của bài).
-- Hardware: chưa phụ thuộc phần cứng. Mọi test chạy được trên CPU với mô hình thu nhỏ. Khi có dòng GPU, thêm một lần chạy kiểm tra trên GPU và đo bộ nhớ ở batch 768.
+- Phần cứng: bốn thí nghiệm trên chạy được trên CPU với mô hình thu nhỏ. Thêm **một lần chạy kiểm tra trên GPU server** (thí nghiệm 1, mô hình đủ cỡ 7M) qua `ops/preflight.sh` và `ops/run_train.sh`, kèm trần VRAM ở 3A.3, để bảo đảm đường chạy thật (tmux, nice, log, checkpoint, resume) hoạt động trước khi sang M6. Test resume: dừng giữa chừng bằng `kill`, chạy `--resume`, loss tiếp tục liền mạch và số batch không bị mất.
 
 ### M6. Pilot rồi mới quyết ngân sách (D8)
 
@@ -225,11 +347,12 @@ Theo Algorithm 1 [tr.4]: **một bước gradient cho mỗi bước denoising** 
 
 *Đơn vị cần định nghĩa rõ*: bài chính không nêu số bước huấn luyện cho N-Queens 8×8. Số "3K epoch" của GRAM (Table 7, tr.20) là tham chiếu của bài khác. Với Algorithm 1, một lượt qua dữ liệu (≈ 7.2k dòng / 768 ≈ 9.4 batch) có thể sinh tới 16 bước tối ưu hoá mỗi batch. Vì vậy "3K epoch" có thể là 28k batch hay tới ≈ 450k bước tối ưu hoá tuỳ cách đếm. Con số "≈ 28k bước" trong bản kế hoạch trước **không đủ căn cứ** và được rút lại. Pilot đo cả hai đơn vị.
 
-- **P0, smoke**: chạy vài trăm bước, đo giây/bước, bộ nhớ đỉnh ở batch 768 và ở batch nhỏ hơn kèm gradient accumulation.
-- **P1, pilot một seed**: chạy đến khi **hết 3,000 batch hoặc 6 giờ**, tuỳ cái nào đến trước (đề xuất, chờ bạn chốt). Mỗi 250 batch đánh giá trên tập con cố định gồm 100 input duy nhất, 20 mẫu mỗi input, $n = 128$, $\gamma = 5$.
-- **Ghi lại**: loss, giây/batch, bộ nhớ, accuracy mẫu đầu, coverage (cả hai cách gộp), phân phối số bước halting, độ hiệu chuẩn của $q$.
+- **P0, smoke** (trên server, sau `preflight.sh`): chạy vài trăm bước, đo giây/bước, bộ nhớ đỉnh (`torch.cuda.max_memory_allocated`) ở batch 768 và ở batch nhỏ hơn kèm gradient accumulation, **dưới trần VRAM 3A.3**. Đo riêng thời gian một lần đánh giá 100 input $\times$ 20 mẫu ($n=128$). So kết quả với ước lượng thô ở Mục 6A và ghi chênh lệch. Nếu bộ nhớ đỉnh vượt trần ở batch 768, chọn micro-batch lớn nhất dưới trần và dùng gradient accumulation để giữ batch hiệu dụng 768.
+- **P1, pilot một seed**: chạy đến khi **hết 3,000 batch hoặc 6 giờ**, tuỳ cái nào đến trước (đề xuất, chờ bạn chốt). Mỗi 250 batch đánh giá trên tập con cố định gồm 100 input duy nhất, 20 mẫu mỗi input, $n = 128$, $\gamma = 5$. **Điều chỉnh theo P0:** nếu thời gian một lần đánh giá vượt 25% thời gian huấn luyện giữa hai lần đánh giá, tăng khoảng cách lên 500 batch (không đổi $n$, vì đổi $n$ làm đổi chính metric).
+- **Ghi lại**: loss, giây/batch, bộ nhớ, accuracy mẫu đầu, coverage (cả hai cách gộp), phân phối số bước halting, độ hiệu chuẩn của $q$, và mỗi lần đánh giá kèm VRAM và utilization của các tiến trình khác (`nvidia-smi`), vì GPU dùng chung làm nhiễu thời gian.
 - **Quy tắc chọn ngân sách** (đề xuất): nếu cuối pilot coverage còn tăng hơn 1 điểm phần trăm trong 25% cuối, nội suy đường cong và đề xuất ngân sách dài hơn; nếu đã đi ngang, đề xuất ngân sách ≈ 1.5 lần điểm bắt đầu đi ngang. Tôi trình đường cong và ước tính thời gian cho bạn, **bạn chốt ngân sách**.
-- **Sau khi bạn chốt**: chạy 3 seed theo Table 6 ($\sigma=1$, `sorted`, hằng số LR, weight decay 1.0, batch 768, EMA 0.999), kèm trọng số thô để so sánh với EMA (D7).
+- **Sau khi bạn chốt**: chạy 3 seed theo Table 6 ($\sigma=1$, `sorted`, hằng số LR, weight decay 1.0, batch 768, EMA 0.999), kèm trọng số thô để so sánh với EMA (D7). Chạy **tuần tự**, mỗi lần một seed (chia sẻ GPU với dịch vụ khác, không chạy song song). Đánh giá cuối trên toàn bộ tập test sau mỗi seed, cho ba cấu hình: EMA $\gamma=5$, thô $\gamma=5$, EMA $\gamma=0$ (Q14).
+- **Trần thời gian** (đề xuất, Q15): pilot $\le 6$ giờ; mỗi seed $\le 5$ giờ (khớp "roughly 1–5 hours" [App. E, tr.17]); đánh giá cuối ≈ 3 giờ cho cả ba seed và ba cấu hình (Mục 6A). Tổng $\le$ 25 giờ GPU. Vượt trần thì dừng, trình đường cong và chờ bạn quyết.
 
 ### M7. Kết quả và đối chiếu
 
@@ -254,6 +377,32 @@ Sau NQ 8×8: NQ 10×10 (khác ở `random-start`, dữ liệu lớn hơn), rồi
 6. **Cách gộp batch cho rollout có halting** chưa được bài nêu (Q2).
 7. **Baseline trong Table 2 của bài chính lệch Table 1 của GRAM v4** ở một số ô (liệt kê trong báo cáo trước); khi so sánh phải ghi rõ nguồn.
 8. **Hai lần đọc mã TRM đều ở một commit**; nếu bạn dùng phiên bản khác, các số dòng ở mục 2 sẽ lệch.
+9. **Server huấn luyện là máy production dùng chung** (Mục 3A): VRAM trống có thể giảm bất ngờ, CPU và thời gian chạy dao động, ổ `/` gần đầy. Giảm rủi ro bằng trần VRAM, checkpoint và resume, cache về `/dataD`, nhưng không loại bỏ; số đo thời gian ở P0 và P1 sẽ nhiễu.
+
+---
+
+## 6A. Ước lượng chi phí tính toán (thô, trước khi đo)
+
+**Đây là suy luận từ kiến trúc ở `SPEC_TABLE2.md` 3.1, không phải số đo.** Mục đích: biết bậc độ lớn để đặt trần thời gian hợp lý. P0 đo thật và ghi chênh lệch vào mục này.
+
+Giả thiết: hai lớp có $6{,}815{,}744$ tham số (khớp M3); $L = 64$; chi phí forward của một lần gọi $F_\theta$ xấp xỉ $2 \times 6.82\text{M} \times 64 \approx 0.872$ GFLOP/mẫu (bỏ qua attention-score, thêm $\approx 0.017$ GFLOP, chưa tới 2%); backward ≈ 2× forward.
+
+| Đại lượng | Tính | Kết quả |
+|---|---|---|
+| Forward, 15 lần gọi $F_\theta$ | $15 \times 0.872$ | ≈ 13.1 GFLOP/mẫu |
+| Backward, chỉ 5 lần gọi ở chu trình cuối | $2 \times 5 \times 0.872$ | ≈ 8.7 GFLOP/mẫu |
+| Một bước tối ưu hoá, batch 768 | $768 \times 21.8$ | ≈ **16.8 TFLOP** |
+| Thời gian/bước nếu hiệu dụng 20–50 TFLOP/s | $16.8 / 50$ đến $16.8 / 20$ | ≈ **0.34–0.84 s** (chưa tính overhead launch và lấy mẫu; thực tế có thể gấp 2–3 lần) |
+| Một lần đánh giá pilot: 100 input $\times$ 20 mẫu $\times$ 128 bước | $256{,}000 \times 13.1$ GFLOP | ≈ 3.35 PFLOP, ≈ 170 s ở 20 TFLOP/s |
+| Đánh giá đầy đủ: ≈ 770 input test $\times$ 20 $\times$ 128 | $1.97\text{M} \times 13.1$ GFLOP | ≈ 25.8 PFLOP, ≈ 21 phút ở 20 TFLOP/s |
+
+Ý nghĩa cho các quyết định:
+
+1. **D8 và đơn vị "3K epoch"** (Mục 5, M6): với cách hiểu 28k batch, tổng $\approx 0.47$ EFLOP. Để chạy xong trong 5 giờ cần duy trì ≈ 26 TFLOP/s, nằm trong tầm. Với cách hiểu ≈ 450k bước tối ưu hoá, tổng $\approx 7.5$ EFLOP, cần duy trì ≈ **419 TFLOP/s** trong 5 giờ, rất khó cho một GPU. Điều này **nghiêng về** cách hiểu ít bước hơn, vì bài nói các lần chạy tiêu biểu mất "roughly 1–5 hours" [App. E, tr.17], nhưng chưa đủ để kết luận: bài cũng không nêu GPU nào chạy tác vụ nào, và số 1–5 giờ có thể ứng với một cấu hình khác. P0 và P1 mới cho căn cứ.
+2. **Ngân sách pilot** 3,000 batch ≈ 0.3–2.5 giờ ở ước lượng trên, nằm dưới trần 6 giờ. Đây là lý do giữ trần.
+3. **Chi phí đánh giá không nhỏ**: ở 1 s/bước, 250 bước ≈ 250 s, trong khi một lần đánh giá ≈ 170 s; đánh giá chiếm tới ~40% thời gian. Vì thế quy tắc "tăng khoảng cách lên 500 nếu đánh giá vượt 25%" ở P1.
+4. **Đánh giá cuối** ba seed $\times$ ba cấu hình ≈ 9 lần $\times$ 21 phút ≈ 3 giờ. Nằm trong trần 25 giờ ở M6.
+5. Trên GPU dùng chung (3A), hiệu dụng thực tế có thể thấp hơn khi các API có request. Ước lượng này là vùng thoáng, không phải cam kết.
 
 ---
 
@@ -269,7 +418,7 @@ Sau NQ 8×8: NQ 10×10 (khác ở `random-start`, dữ liệu lớn hơn), rồi
 | Q6 | D7: đánh giá bằng EMA làm số chính, kèm trọng số thô? | Khuyến nghị: có (mục 2.3) |
 | Q7 | DEV-01: nếu không cài được Adam-atan2 chuẩn, dùng bản tự viết khớp kernel (B)? | Khuyến nghị (B), kèm test số học. Chờ bạn duyệt trong `DEVIATIONS.md` |
 | Q8 | "Three repeated tests" [Table 2 caption, tr.9] là ba lần huấn luyện hay ba lần suy luận? | Chưa rõ. Kế hoạch dùng ba lần huấn luyện với seed khác nhau, và ghi rõ |
-| Q9 | Dòng GPU | Còn trống (mục 3) |
+| Q9 | Dòng GPU | Còn trống (mục 3); ứng viên RTX 4090 ở Mục 3A, chờ bạn xác nhận |
 | Q10 | Quy tắc pilot ở M6 (3,000 batch hoặc 6 giờ; đánh giá mỗi 250 batch trên 100 input) | Là đề xuất. Chờ bạn chỉnh |
 
 ---
@@ -277,6 +426,18 @@ Sau NQ 8×8: NQ 10×10 (khác ở `random-start`, dữ liệu lớn hơn), rồi
 ## 8. Danh sách duyệt cho phiên sau
 
 Tick vào ô để duyệt. Mục không tick thì áp dụng **mặc định** ghi ở cột phải, chỉ khi mặc định đó không chặn mốc nào. Mục "chặn" nghĩa là không thể làm mốc ghi bên cạnh nếu chưa có quyết định.
+
+### 8.0 Duyệt nhanh
+
+Trả lời **"duyệt mặc định"** nghĩa là chấp nhận toàn bộ cột "Đề xuất" ở 8.1, 8.2, 8.3. Các ngoại lệ vẫn dừng lại hỏi bạn:
+
+- **DEV-01**: thử phương án A trước; nếu không cài được thì **dừng**, chờ bạn duyệt B.
+- **D4** (ô clue cố định, loss chỉ trên ô còn lại): chặn M4; đề xuất "có", nhưng cần bạn tick vì phần loss là lựa chọn của người lập kế hoạch.
+- **Q18**: nếu bạn không điền khung giờ, tôi hỏi lại trước khi chạy job đầu tiên trên server production.
+- **Q19, Q20**: phải có đường dẫn `$SRV_ROOT` và cách chạy lệnh trước M0 trên server.
+- **D8**: chỉ quyết sau pilot.
+
+Muốn bắt đầu sớm nhất: chỉ cần Q19 và Q20 để làm M0 trên server, hoặc không cần gì để làm **M1 và M2 ngay trên laptop** (xem Mục 9).
 
 ### 8.1 Bắt buộc trước khi làm các mốc tương ứng
 
@@ -286,7 +447,7 @@ Tick vào ô để duyệt. Mục không tick thì áp dụng **mặc định** 
 | ☐ | **Q1**: đầu $q$ đọc từ đâu khi không có ô puzzle-embedding | M3 | mean-pool của $h$ | a / b / c: ____ |
 | ☐ | **Q2**: cách gộp batch có halting | M5 | rollout đồng bộ, che mẫu đã dừng | a / b: ____ |
 | ☐ | **Q3**: cập nhật mỗi bước denoising (Algorithm 1) hay một lần mỗi rollout (Eq. 9) | M5 | theo Algorithm 1 | ____ |
-| ☐ | **Q9**: dòng GPU của máy huấn luyện | M5, M6 | (không có) | ____ |
+| ☐ | **Q9**: dòng GPU của máy huấn luyện | M5, M6 | RTX 4090 trên server (Mục 3A) | ____ |
 | ☐ | **Q10**: quy tắc pilot M6 (3,000 batch hoặc 6 giờ, đánh giá mỗi 250 batch, 100 input) | M6 | như đề xuất | ____ |
 | ☐ | **D8**: ngân sách huấn luyện đầy đủ | sau pilot M6 | do pilot quyết | ____ |
 
@@ -307,17 +468,20 @@ Tick vào ô để duyệt. Mục không tick thì áp dụng **mặc định** 
 | ☐ | Q12 | Phiên bản GRAM mà bài chính trích (v1, v2, v3 hay v4)? Nếu cần so từng ô baseline, tải các bản cũ để đối chiếu | Table 2 của bài chính lệch Table 1 của GRAM v4 ở một số ô | Chỉ làm nếu cần số baseline chính xác |
 | ☐ | Q13 | Khi báo kết quả, số "chính" cho coverage là cách gộp theo input duy nhất hay theo dòng? (D2 đã duyệt báo cả hai, nhưng chưa nói số nào làm tiêu đề) | Quyết định số nào đặt cạnh 91.4 của bài | Theo input duy nhất |
 | ☐ | Q14 | Có chạy thêm hàng ODE ($\gamma=0$) của Table 5 và 7 sau khi có kết quả chính không? | Chi phí thấp, dùng lại mô hình đã huấn luyện, là kiểm tra chéo tốt | Có |
-| ☐ | Q15 | Bao nhiêu thời gian GPU tối đa bạn chấp nhận cho 3 seed? | Cần để chốt D8 và quyết có chạy NQ 10×10 hay không | ____ giờ |
-| ☐ | Q16 | Môi trường chạy: máy này (RTX 3050 4 GB), server H100, hay cả hai (unit test ở máy này, huấn luyện ở H100)? | Quyết định M0 cài gì và M6 đo gì | Unit test cục bộ, huấn luyện trên GPU lớn hơn |
+| ☐ | Q15 | Bao nhiêu thời gian GPU tối đa bạn chấp nhận cho 3 seed? | Cần để chốt D8 và quyết có chạy NQ 10×10 hay không | $\le$ 25 giờ GPU (Mục 6A, M6); ____ giờ |
+| ☐ | Q16 | Môi trường chạy: máy này (RTX 3050 4 GB), server H100, hay cả hai (unit test ở máy này, huấn luyện ở H100)? | Quyết định M0 cài gì và M6 đo gì | Server RTX 4090 cho cài đặt, test, pilot và huấn luyện; laptop chỉ để soạn thảo. H100 chỉ khi bạn chọn |
 | ☐ | Q17 | Sau NQ 8×8, ưu tiên NQ 10×10 hay Graph Coloring trước? | Cần plan riêng cho phần tiếp theo | NQ 10×10 (khác ít nhất) |
+| ☐ | Q18 | Bạn có cho phép chạy job huấn luyện dài (vài giờ) trên server production RTX 4090 không, và mức trần chấp nhận được là bao nhiêu (VRAM, `OMP_NUM_THREADS`, `nice`, khung giờ)? | Máy chạy dịch vụ thật của team; Mục 3A.3–3A.4 dựa trên các trần này | VRAM $\le$ 12 GB, `OMP_NUM_THREADS=4`, `nice -n 10`; khung giờ: ____ |
+| ☐ | Q19 | Đường dẫn gốc `$SRV_ROOT` của project trên `/dataD`, và dùng `uv` hay `conda` để tạo env mới? | M0 cần để đặt env và cache; chưa biết đường dẫn | `uv` (bạn nêu là có sẵn); `$SRV_ROOT` = ____ |
+| ☐ | Q20 | Tôi chạy lệnh trên server bằng cách nào? Tôi không có kết nối riêng tới server; phiên này chạy ở laptop (`nvidia-smi` báo RTX 3050) | Mọi bước M0 trở đi trên server phụ thuộc điều này | Bạn mở phiên Claude Code qua VS Code Remote-SSH ngay trên server, repo ở `$SRV_ROOT`; hoặc bạn tự chạy lệnh tôi soạn và dán kết quả. Chọn: ____ |
 
 ---
 
 ## 9. Cách tiếp tục ở phiên sau
 
-1. Mở `PLAN_TABLE2.md` Mục 8, tick các mục duyệt, gửi lại.
-2. Nếu bạn chưa muốn quyết hết, cho phép làm **M0, M1, M2** trước. Ba mốc này không cần GPU và không phụ thuộc Q1–Q3, Q9, DEV-01, D8. M3 trở đi thì bị chặn như ghi ở 8.1.
-3. Bắt đầu bằng M0 (môi trường), sau đó M1 theo các giá trị chuẩn trong mục 5.
+1. Mở `PLAN_TABLE2.md` Mục 8, tick các mục duyệt (hoặc trả lời "duyệt mặc định" theo 8.0), gửi lại.
+2. Nếu bạn chưa muốn quyết hết, cho phép làm **M1, M2** trước. Hai mốc này không cần GPU, chỉ cần `python` và `numpy` (và `pytest`), không phụ thuộc Q1–Q3, Q9, DEV-01, D8. Có thể làm ngay trên laptop. M0 trên server cần thêm Q19 và Q20. M3 trở đi bị chặn như ghi ở 8.1.
+3. Thứ tự đề xuất: (M1, M2 song song với chuẩn bị M0) → M0 trên server → M3 → M4 → M5 → P0 → P1 → bạn chốt D8 → M6 3 seed → M7.
 
 ### Những thứ sẽ **mất** khi phiên này kết thúc
 
@@ -330,7 +494,7 @@ Các file sau nằm trong thư mục tạm của phiên (`/tmp/claude-1000/.../s
 | Mã nguồn `adam-atan2` 0.0.3 và `adam-atan2-pytorch` 0.4.1 (đã đọc để lập DEV-01) | Tải trực tiếp tarball (hoặc wheel) từ trang PyPI của gói rồi giải nén để đọc. Lưu ý: với `adam-atan2`, lệnh `pip download` trên sdist **chạy bước metadata của `setup.py`** (phiên này đã xảy ra, và mã đó chỉ `import torch` trong khối `try`). `adam-atan2-pytorch` có wheel thuần Python nên không có bước này |
 | Script liệt kê N-Queens (`nq_check.py`) tạo ra các giá trị chuẩn ở M1 | **Không được lưu.** Các con số chuẩn đã nằm trong bảng M1. Script chỉ ~30 dòng: backtracking ra 92 lời giải; với mỗi lời giải và mỗi tổ hợp $k \in \{5,6,7\}$ quân bị bỏ, tạo một dòng; đếm số input duy nhất và số lời giải tương thích mỗi input. M1 sẽ viết lại |
 
-**Việc đã thực hiện nhưng chưa được duyệt**: không có thay đổi nào ngoài hai file tài liệu (`PLAN_TABLE2.md`, `DEVIATIONS.md`) và `SPEC_TABLE2.md` từ trước. Không cài gói nào, không tạo môi trường.
+**Việc đã thực hiện nhưng chưa được duyệt**: không có thay đổi nào ngoài hai file tài liệu (`PLAN_TABLE2.md`, `DEVIATIONS.md`) và `SPEC_TABLE2.md` từ trước; ngày 31/10/2026 chỉ sửa `PLAN_TABLE2.md` (Mục 3, 3A, 4, 4A, 5.0, M0, M5, M6, 6, 6A, 7, 8, 9). Không cài gói nào, không tạo môi trường, không chạy lệnh nào trên server. Một đoạn Python tính nhẩm FLOPs (Mục 6A) đã chạy ở laptop, không ghi file.
 
 ---
 
