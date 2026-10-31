@@ -1,4 +1,11 @@
-# Diffusion Models & Looped Architectures: Paper Analysis & Slides
+# Diffusion Models & Looped Architectures: Paper Analysis, Slides & Reproduction
+
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![LaTeX](https://img.shields.io/badge/LaTeX_Beamer-008080?logo=latex&logoColor=white)
+![Status](https://img.shields.io/badge/status-in_progress-orange)
+
+> **EN:** Research notes, Beamer slides, and a from-scratch PyTorch reproduction of *Thinking with Looped Flows* (Table 2, N-Queens 8×8) — flow matching on a looped transformer, with a 58-test pytest suite and documented deviations from the paper.
 
 Dự án tổng hợp nghiên cứu, phân tích chuyên sâu và tạo slide thuyết trình (LaTeX Beamer) cho các bài báo khoa học tiên phong về **Diffusion/Flow Matching Models** và **Looped Transformers**.
 
@@ -29,6 +36,8 @@ Dự án tổng hợp nghiên cứu, phân tích chuyên sâu và tạo slide th
 │   ├── fmlm/                # Project slide con độc lập cho FMLM
 │   ├── looped transformer/  # Project slide con độc lập cho Looped Transformers
 │   └── archive/             # Lưu trữ các bản slide PDF đã xuất trước đây
+│
+├── implement/looped_model/  # Tái hiện Table 2 của *Thinking with Looped Flows* (PyTorch)
 │
 ├── assets/                  # Hình ảnh và sơ đồ minh họa dùng chung
 │   ├── fmlm.png
@@ -64,3 +73,27 @@ xelatex main.tex
   xelatex main.tex
   ```
 
+---
+
+## 🧪 Tái hiện *Thinking with Looped Flows* — Table 2 (N-Queens 8×8)
+
+Mã nguồn tại [`implement/looped_model/`](implement/looped_model/). **Đang thực hiện:** mã đã viết và kiểm trên CPU, chưa có kết quả huấn luyện đầy đủ.
+
+| Mô-đun | Nội dung |
+|---|---|
+| `lf/data_nqueens.py` | Sinh dữ liệu N-Queens, chia train/test theo seed |
+| `lf/model.py`, `lf/optim.py` | Backbone looped transformer (6,815,744 tham số), Adam-atan2 |
+| `lf/flow.py`, `lf/sampler.py` | Interpolant flow matching, StableMax CE, sampler (Algorithm 2) |
+| `lf/train.py` | Vòng huấn luyện (Algorithm 1), checkpoint và resume |
+| `lf/metrics.py`, `lf/eval_table2.py` | Coverage và accuracy theo Table 2 |
+| `tests/` | Bộ pytest chạy được trên CPU |
+
+Tài liệu: [`SPEC_TABLE2.md`](implement/looped_model/SPEC_TABLE2.md) (đặc tả) · [`PLAN_TABLE2.md`](implement/looped_model/PLAN_TABLE2.md) (kế hoạch) · [`DEVIATIONS.md`](implement/looped_model/DEVIATIONS.md) (sai khác so với bài báo).
+
+```bash
+cd implement/looped_model
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pytest -q                                   # chạy bộ test trên CPU
+python -m lf.train --config configs/nq8.yaml --steps 20000 --out runs/seed0 --device cuda --seed 0
+```
