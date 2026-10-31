@@ -39,6 +39,7 @@ Trạng thái: **ĐỀ XUẤT** (chờ duyệt), **ĐÃ DUYỆT**, **TỪ CHỐI
 - **Ta làm**: tự sinh dữ liệu theo mô tả (8,464 dòng, 5,148 input duy nhất) và chia theo input với một hạt giống cố định (D10). Số dòng train và test có thể lệch nhẹ khỏi 7,224 và 1,240.
 - **Ảnh hưởng**: so sánh số tuyệt đối với baseline chỉ ở mức gần đúng; thứ hạng giữa các phương pháp vẫn có ý nghĩa nếu cùng tập test.
 - **Duyệt**: không cần.
+- **Thực tế đo được (31/10/2026, M1)**: với `split_seed=0`, chia ra **7,248 train / 1,216 test** dòng (14.37%), so với 7,224 / 1,240 (14.65%) của GRAM.
 
 ---
 

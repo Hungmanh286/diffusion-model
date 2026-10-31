@@ -3,7 +3,18 @@
 Bài chính: *Thinking with Looped Flows* (arXiv:2609.11801). Bài tham chiếu: GRAM (arXiv:2605.19376v4).
 Tài liệu liên quan: `SPEC_TABLE2.md` (mục tiêu, dữ liệu, mơ hồ), `DEVIATIONS.md` (sai khác so với bài và các lựa chọn lấp chỗ, đã duyệt).
 
-**Trạng thái: BẢN CUỐI, ĐÃ DUYỆT ngày 31/10/2026** ("duyệt theo đề xuất hợp lý"). Chưa có code, chưa cài gì. Việc tiếp theo: M0 trên server. Chỉ còn D8 (ngân sách huấn luyện đầy đủ) quyết sau pilot.
+**Trạng thái: BẢN CUỐI, ĐÃ DUYỆT ngày 31/10/2026** ("duyệt theo đề xuất hợp lý"). Chỉ còn D8 (ngân sách huấn luyện đầy đủ) quyết sau pilot.
+
+**Tiến độ code (31/10/2026):** đã viết toàn bộ code M1–M5 + harness M7 và **kiểm trên CPU** (58 pytest đạt). Lưu ý: phiên code chạy trên **laptop** (RTX 3050, không phải server như Mục 3 mô tả); đã tạo venv CPU cục bộ `.venv` (gitignored, torch 2.14.1) và clone TRM vào `ref/` để đối chiếu mã. Đã làm:
+- M1 `lf/data_nqueens.py`: khớp mọi giá trị chuẩn (92/8464/5148/1.644/18/0.655; clue 64/1052/4032; split seed 0 → 7248/1216 ≈ 14.37%).
+- M2 `lf/metrics.py`: is_valid_board, coverage hai cách gộp, accuracy mẫu đầu.
+- M3 `lf/model.py` + `lf/optim.py`: backbone đúng **6,815,744** tham số; cắt gradient `[no-grad×10, grad×5]` (15 lần gọi $F_\theta$); Adam-atan2 bước đầu 0.9967·lr.
+- M4 `lf/flow.py` + `lf/sampler.py`: interpolant, time sampler, StableMax CE (khớp giá trị tay), Algorithm 2 (oracle về đúng $x_1$, clue cố định, marginal App. C đúng).
+- M5 `lf/train.py`: Algorithm 1 + carry kiểu TRM (D11); overfit 32 dòng loss↓ acc→1.0; checkpoint + resume tái lập đúng (lưu cả carry).
+- M7 `lf/eval_table2.py`: 20 suy luận/input, coverage + accuracy.
+- `ops/env_server.sh`, `preflight.sh`, `run_train.sh` cho server.
+
+**Việc tiếp theo cần GPU server (chưa làm được từ laptop):** M0 (dựng venv `cu130`, thử Adam-atan2 phương án A), chạy thật M5 cỡ 7M, P0, P1, rồi chốt D8, 3 seed, M7.
 
 Thay đổi so với bản chờ duyệt cùng ngày (sau khi rà soát trực tiếp trên server):
 - Phiên làm việc chạy **ngay trên server RTX 4090**; bỏ vai trò laptop (Mục 3, 3A).

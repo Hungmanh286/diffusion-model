@@ -23,3 +23,11 @@ Thumbs.db
 *~
 *.swp
 
+# Looped Flows reproduction (implement/looped_model)
+implement/looped_model/runs/
+implement/looped_model/ref/
+implement/looped_model/cache/
+implement/looped_model/.venv/
+implement/looped_model/**/*.ckpt
+implement/looped_model/**/*.pt
+
