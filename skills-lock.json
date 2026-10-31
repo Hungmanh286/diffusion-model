@@ -13,6 +13,12 @@
       "skillPath": "SKILL.md",
       "computedHash": "08a52852012ad7a0fa250f9f8f5af68b1db826ff0b42801c7faa8d758ef47520"
     },
+    "paper-context-resolver": {
+      "source": "lllllllama/rigorpilot-skills",
+      "sourceType": "github",
+      "skillPath": "skills/paper-context-resolver/SKILL.md",
+      "computedHash": "4d8d8878f64c6b6d72cfbbb2e5a70fd2d33328a09be218590f7c4a050dbd16d9"
+    },
     "paper-reading": {
       "source": "jxtse/scientific-research-skills",
       "sourceType": "github",
