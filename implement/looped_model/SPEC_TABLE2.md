@@ -133,7 +133,7 @@ Chi tiết **KHÔNG NÊU**:
 - Interpolant $I_t = (1-t)x_0 + t x_1$, với $x_0 \sim \mathcal{N}(0, \sigma^2 I)$ [Eq. 3, tr.3].
 - Các bước $t_0 < \dots < t_k$ được lấy từ phân phối $\mu$ (Mục 3.3). **Cùng một bộ $(c, x_0, x_1)$ được chia sẻ cho mọi $t_i$** [§3.1, tr.5]. Dùng stop-gradient giữa các bước.
 - ACT [Eq. 10, tr.5; Algorithm 1 dòng 7–9]: đầu $q$ dự đoán xem $\text{round}(\hat{x}_{t_i}) = x_1$ hay không (BCE với trọng số $\lambda$). Nếu $\hat{q} > 1/2$ thì dừng vòng lặp và bỏ các bước sau.
-- Hàm CE là **mean StableMax cross-entropy**, $k = 16$, $\lambda = 0.5$, exploration probability $0.1$ (theo TRM), bfloat16 [App. E.1, tr.16].
+- Hàm CE là **mean StableMax cross-entropy**, $k = 16$, $\lambda = 0.5$, exploration probability $0.1$ (theo TRM), "bfloat16 precision for forward passes" [App. E.1, tr.16].
 
 ### 3.3 Siêu tham số theo tác vụ [Table 6, tr.16, PDF]
 
