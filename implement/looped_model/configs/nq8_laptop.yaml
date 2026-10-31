@@ -1,0 +1,84 @@
+# CHỈ CHẠY THỬ TRÊN LAPTOP (RTX 3050 4 GB) — không dùng cho số liệu Table 2.
+# Sao chép nq8.yaml, chỉ đổi optim.batch_size 768 -> 64 (B=128 OOM khi đo 31/10/2026).
+
+# Cấu hình chuẩn cho N-Queens 8x8 — nguồn: PLAN_TABLE2.md Mục 4A.
+# Mọi giá trị đọc từ file này, không hard-code trong mã.
+# Nhãn nguồn: SPEC = SPEC_TABLE2.md; App.X / Table X tr.N = bài 2609.11801;
+# Dxx = quyết định đã duyệt (PLAN Mục 1, 7).
+
+task: nqueens-8x8
+
+data:
+  board_size: 8            # N; bàn N x N
+  seq_len: 64              # L = N*N, row-major (SPEC 2.1)
+  vocab_size: 3            # |V|: 0=pad, 1=empty, 2=queen (D3, GRAM)
+  pad_id: 0
+  empty_id: 1
+  queen_id: 2
+  hide_counts: [5, 6, 7]   # số quân bị ẩn; clue giữ lại 8 - hide quân (SPEC 5.2 tr.8)
+  test_frac: 0.15          # chia 85:15 theo input duy nhất (GRAM App. C.2 tr.21; D9)
+  split_seed: 0            # hạt giống chia dữ liệu cố định (D10)
+  # Giá trị chuẩn để test (từ liệt kê, không từ bài) — PLAN M1
+  golden:
+    num_solutions: 92
+    num_rows: 8464
+    num_unique_inputs: 5148
+    max_solutions_per_input: 18
+    inputs_by_clue_size: {1: 64, 2: 1052, 3: 4032}
+
+model:
+  hidden_size: 512         # App. A tr.14
+  num_layers: 2
+  num_heads: 8
+  mlp_intermediate: 1536   # SwiGLU
+  attention: noncausal     # RoPE, noncausal (App. A)
+  m_cycles: 4              # cập nhật l mỗi chu trình (App. A; m=4 cho NQ/GC)
+  outer_cycles: 3          # 3 chu trình/lần gọi denoiser; 2 đầu không gradient
+  q_head_pos: 0            # đầu ACT đọc h ở vị trí 0 (Q1, D5; trm.py:221)
+  q_head_bias_init: -5.0   # trm.py:158-160
+  z_init_std: 1.0          # truncated normal std=1 (trm.py:153-154)
+
+flow:
+  sigma: 1.0               # noise scale (Table 6 tr.16)
+  time_sampler: sorted     # NQ-8 dùng sorted (Table 6)
+  pseudotargets: false     # Table 6: No cho NQ/GC
+  k_steps: 16              # số bước huấn luyện mỗi rollout (App. E.1 tr.16)
+
+loss:
+  type: stablemax_cross_entropy  # mean StableMax CE (App. E.1; losses.py)
+  stablemax_eps: 1.0e-30         # losses.py:11-16
+  ce_dtype: float64              # losses.py:25
+  act_lambda: 0.5                # trọng số loss ACT (App. E.1)
+  exploration_prob: 0.1          # App. E.1 (Jolicoeur-Martineau)
+  halt_threshold: 0.5            # dừng khi q_hat > 1/2 (Algorithm 1 dòng 9)
+
+optim:
+  name: adam_atan2         # DEV-01 (A trước, B dự phòng)
+  beta1: 0.9
+  beta2: 0.95
+  peak_lr: 1.0e-4          # App. E.1 tr.16
+  warmup_steps: 2000       # App. E.1
+  lr_schedule: constant    # sau warmup giữ hằng (Table 6: Constant cho NQ)
+  weight_decay: 1.0        # Table 6
+  grad_clip: 1.0           # App. E.1
+  ema_decay: 0.999         # App. E.1
+  batch_size: 64           # LAPTOP: gốc 768 (App. E.1)
+
+precision:
+  forward: bfloat16        # "bfloat16 precision for forward passes" (App. E.1)
+  params: float32          # lựa chọn của ta (DEV-03)
+  ce: float64
+
+inference:
+  num_steps: 128           # n (Table 6)
+  gamma: 5.0               # stochasticity (Table 6)
+  uniform_grid: true       # lưới thời gian đều (D6)
+  num_inferences: 20       # 20 lần suy luận độc lập mỗi input (SPEC 4.3)
+
+eval:
+  coverage_headline: by_unique_input   # số tiêu đề (Q13, D2); báo kèm by_row
+  weights: ema                         # EMA là số chính, kèm thô (D7)
+
+train:
+  seeds: [0, 1, 2]         # 3 lần huấn luyện (Q8)
+  # D8 (tổng số bước) CHƯA chốt — quyết sau pilot P1. Không đặt ở đây.

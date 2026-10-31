@@ -187,6 +187,7 @@ class LFDenoiser(nn.Module):
         q_head_bias_init: float = -5.0,
         z_init_std: float = 1.0,
         dtype: torch.dtype = torch.float32,
+        forward_dtype: torch.dtype = torch.float32,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -196,6 +197,11 @@ class LFDenoiser(nn.Module):
         self.seq_len = seq_len
         self.q_head_pos = q_head_pos
         self.dtype = dtype
+        # dtype tính toán forward (DEV-03, App. E.1 "bfloat16 precision for forward
+        # passes"). Kiểu TRM: tham số giữ float32, Linear ép trọng số về dtype của
+        # input (layers.py:59-60); đầu vào và trạng thái z ở forward_dtype
+        # (trm.py:153-154, 183-186). Logits ra cùng dtype; CE tự đổi sang float64.
+        self.forward_dtype = forward_dtype
         self.embed_scale = math.sqrt(hidden_size)
 
         # Đầu vào liên tục: chiếu interpolant |V| -> hidden (không bias) và MLP thời gian.
@@ -223,12 +229,14 @@ class LFDenoiser(nn.Module):
     # -- trạng thái -------------------------------------------------------- #
     def initial_state(self, batch_size: int, device=None):
         device = device or self.h_init.device
-        h = self.h_init.view(1, 1, -1).expand(batch_size, self.seq_len, self.hidden_size).to(device)
-        l = self.l_init.view(1, 1, -1).expand(batch_size, self.seq_len, self.hidden_size).to(device)
+        fd = self.forward_dtype
+        h = self.h_init.view(1, 1, -1).expand(batch_size, self.seq_len, self.hidden_size).to(device=device, dtype=fd)
+        l = self.l_init.view(1, 1, -1).expand(batch_size, self.seq_len, self.hidden_size).to(device=device, dtype=fd)
         return h.contiguous(), l.contiguous()
 
     def _injection(self, x_t: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """e_t = sqrt(H) * input_proj(I_t) + time_emb(t), cộng vào mọi vị trí."""
+        x_t = x_t.to(self.forward_dtype)  # interpolant tính ở float32 rồi mới ép
         inp = self.embed_scale * self.input_proj(x_t)
         temb = self.time_mlp(t.reshape(-1, 1).to(x_t.dtype))  # (B, H)
         return inp + temb.unsqueeze(1)
@@ -247,7 +255,7 @@ class LFDenoiser(nn.Module):
         state: (h, l), mỗi cái (B, L, H).
         Trả về: logits (B, L, |V|), (h, l) mới đã detach.
         """
-        h, l = state
+        h, l = state[0].to(self.forward_dtype), state[1].to(self.forward_dtype)
         cos_sin = self.rotary()
         e = self._injection(x_t, t)
 

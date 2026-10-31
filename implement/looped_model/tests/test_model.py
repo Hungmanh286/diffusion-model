@@ -149,6 +149,33 @@ def test_ema_tracks_params():
             assert torch.allclose(ema.shadow[n], exp, atol=1e-5)
 
 
+def test_bf16_forward_dtype():
+    """DEV-03: forward bf16, tham số vẫn float32; trạng thái và logits ở bf16."""
+    m = _small(forward_dtype=torch.bfloat16)
+    B, L = 4, 16
+    x = torch.randn(B, L, VOCAB)  # đầu vào float32, model tự ép
+    t = torch.rand(B)
+    h, l = m.initial_state(B)
+    assert h.dtype == torch.bfloat16 and l.dtype == torch.bfloat16
+    logits, q, (h2, l2) = m.forward(x, t, (h, l))
+    assert logits.dtype == torch.bfloat16
+    assert h2.dtype == torch.bfloat16 and l2.dtype == torch.bfloat16
+    assert q.dtype == torch.float32
+    assert all(p.dtype == torch.float32 for p in m.parameters())
+    assert torch.isfinite(logits.float()).all()
+    # Trạng thái float32 cũ (checkpoint trước khi có bf16) vẫn nạp được.
+    logits2, _, _ = m.forward(x, t, (h.float(), l.float()))
+    assert logits2.dtype == torch.bfloat16
+    # Gần với forward float32 cùng trọng số. Sai số bf16 cộng dồn qua 15 lần gọi
+    # F_theta (3 chu trình x (m+1)); đo được ~2-7% tương đối, nên ngưỡng 15%.
+    m32 = _small()
+    m32.load_state_dict(m.state_dict())
+    h32, l32 = m32.initial_state(B)
+    ref, _, _ = m32.forward(x, t, (h32, l32))
+    rel = ((logits.float() - ref).norm() / ref.norm()).item()
+    assert rel < 0.15, rel
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

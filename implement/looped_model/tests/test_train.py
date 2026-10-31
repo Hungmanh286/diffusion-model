@@ -69,8 +69,43 @@ def test_resume_reproducible(tmp_path=None):
         assert torch.allclose(p, ref[n], atol=1e-5), f"resume lệch ở {n}"
 
 
+def test_bf16_train_steps():
+    """DEV-03: huấn luyện với forward bf16 chạy được, loss hữu hạn, carry bf16."""
+    pool = DATA.train_rows[:32]
+    tr = Trainer(_cfg(forward_dtype="bfloat16"), data=DATA, row_pool=pool)
+    losses = [tr.train_step()["loss"] for _ in range(30)]
+    assert all(np.isfinite(losses)), losses
+    assert tr.c_h.dtype == torch.bfloat16
+    assert all(p.dtype == torch.float32 for p in tr.model.parameters())
+    assert np.mean(losses[-5:]) < losses[0], losses
+
+
+def test_from_yaml_reads_precision():
+    cfg = TrainConfig.from_yaml(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "configs", "nq8.yaml"))
+    assert cfg.forward_dtype == "bfloat16"
+
+
+def test_resume_on_cuda():
+    """Lỗi tìm thấy ở S1 laptop: load với map_location=cuda đẩy RNG state lên GPU."""
+    if not torch.cuda.is_available():
+        print("skip: không có CUDA")
+        return
+    import tempfile
+    pool = DATA.train_rows[:32]
+    a = Trainer(_cfg(device="cuda"), data=DATA, row_pool=pool)
+    for _ in range(3):
+        a.train_step()
+    ckpt = os.path.join(tempfile.mkdtemp(), "c.pt")
+    a.save(ckpt)
+    b = Trainer(_cfg(device="cuda"), data=DATA, row_pool=pool)
+    b.load(ckpt)
+    assert b.step == 3
+    b.train_step()
+
+
 if __name__ == "__main__":
-    for fn in [test_overfit_one_batch, test_resume_reproducible]:
+    fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    for fn in fns:
         fn()
         print("ok  ", fn.__name__)
-    print("\n2 test đạt.")
+    print(f"\n{len(fns)} test đạt.")

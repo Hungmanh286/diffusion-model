@@ -60,7 +60,8 @@ class TrainConfig:
     batch_size: int = 768
     seed: int = 0
     device: str = "cpu"
-    dtype: str = "float32"
+    dtype: str = "float32"          # dtype dữ liệu/nhiễu/carry phụ (float32)
+    forward_dtype: str = "float32"  # dtype forward; yaml precision.forward (bfloat16)
 
     @classmethod
     def from_yaml(cls, path: str) -> "TrainConfig":
@@ -87,6 +88,7 @@ class TrainConfig:
             grad_clip=c["optim"]["grad_clip"],
             ema_decay=c["optim"]["ema_decay"],
             batch_size=c["optim"]["batch_size"],
+            forward_dtype=c.get("precision", {}).get("forward", "float32"),
         )
 
 
@@ -113,6 +115,7 @@ class Trainer:
             vocab_size=V, hidden_size=cfg.hidden_size, num_layers=cfg.num_layers,
             num_heads=cfg.num_heads, m_cycles=cfg.m_cycles, outer_cycles=cfg.outer_cycles,
             seq_len=cfg.seq_len, dtype=self.dtype,
+            forward_dtype=getattr(torch, cfg.forward_dtype),
         ).to(self.device)
         self.opt = AdamATan2(
             self.model.parameters(), lr=cfg.peak_lr, betas=(0.9, 0.95),
@@ -263,8 +266,9 @@ class Trainer:
         self.model.load_state_dict(ck["model"])
         self.opt.load_state_dict(ck["opt"])
         self.ema.load_state_dict(ck["ema"])
-        torch.set_rng_state(ck["torch_rng"])
-        self.gen.set_state(ck["gen_rng"])
+        # RNG state phải là ByteTensor trên CPU; map_location=cuda đã đẩy nó lên GPU.
+        torch.set_rng_state(ck["torch_rng"].cpu())
+        self.gen.set_state(ck["gen_rng"].cpu())
         cy = ck["carry"]
         self.c_h, self.c_l = cy["h"].to(self.device), cy["l"].to(self.device)
         self.c_rows = cy["rows"].to(self.device)
@@ -294,14 +298,28 @@ def main():
         trainer.load(args.resume)
         print(f"resume từ bước {trainer.step}")
 
+    # Log là TRUNG BÌNH trên cửa sổ log_every bước, không phải số của một bước:
+    # số một bước dao động theo pha rollout k bước (S1 laptop: halt=1.00 ở bước
+    # chia hết cho 16 do mọi carry chạy đồng bộ lúc đầu). lr là giá trị bước cuối.
+    print(f"log: trung bình cửa sổ {args.log_every} bước; forward dtype {cfg.forward_dtype}")
+    keys = ("loss", "lm_loss", "q_loss", "frac_halted")
+    win = {k: 0.0 for k in keys}
+    nwin = 0
     t0 = time.time()
+    step0 = trainer.step
     while trainer.step < args.steps:
         m = trainer.train_step()
+        for k in keys:
+            win[k] += m[k]
+        nwin += 1
         if m["step"] % args.log_every == 0:
             dt = time.time() - t0
-            print(f"step {m['step']} loss {m['loss']:.4f} lm {m['lm_loss']:.4f} "
-                  f"q {m['q_loss']:.4f} lr {m['lr']:.2e} halt {m['frac_halted']:.2f} "
-                  f"{m['step']/max(dt,1e-9):.2f} it/s")
+            a = {k: win[k] / nwin for k in keys}
+            print(f"step {m['step']} loss {a['loss']:.4f} lm {a['lm_loss']:.4f} "
+                  f"q {a['q_loss']:.4f} lr {m['lr']:.2e} halt {a['frac_halted']:.3f} "
+                  f"{(m['step'] - step0)/max(dt,1e-9):.2f} it/s", flush=True)
+            win = {k: 0.0 for k in keys}
+            nwin = 0
         if m["step"] % args.ckpt_every == 0:
             trainer.save(os.path.join(args.out, f"ckpt_{m['step']}.pt"))
     trainer.save(os.path.join(args.out, "ckpt_final.pt"))
